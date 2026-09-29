@@ -122,15 +122,16 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     ),
   ).toBe(true);
 });
-test("login, reset and invalid invitation states", async ({ page }) => {
+test("manual account login and invalid invitation states", async ({ page }) => {
   await page.goto("/login");
   await expect(
     page.getByRole("heading", { name: "Willkommen zurück." }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Passwort vergessen?" }).click();
   await expect(
-    page.getByRole("button", { name: "Link anfordern" }),
+    page.getByText(/Passwort vergessen\? Wende dich an deine Teamleitung/),
   ).toBeVisible();
+  await page.goto("/account/password");
+  await expect(page).toHaveURL(/\/login$/);
   await page.goto("/auth/confirm?token_hash=invalid&type=unsupported");
   await expect(page).toHaveURL(/notice=expired/);
   await expect(

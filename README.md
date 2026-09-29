@@ -17,29 +17,22 @@ Open http://localhost:3000. Without Supabase environment variables, the root sho
 
 1. Create a Supabase project. Run both files in `supabase/migrations/` in filename order, each once in its own SQL Editor query (or use the Supabase CLI migration workflow). For an existing installation, run only the unapplied migration; see the update instructions below.
 2. Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` using the project's Connect dialog. The application uses no service-role key. Restart the local server after changing environment variables.
-3. Under Authentication settings, **disable public sign-ups**. Set a minimum password length of 12 and keep email confirmation enabled. Before editing email templates or inviting partners, configure a **custom SMTP provider** under Authentication → Emails → SMTP Settings. Supabase's built-in mail provider is only for limited testing and, on newly created free-tier projects, may not permit custom auth email templates. Review Auth rate limits before launch.
-4. Set the Supabase **Site URL** to your canonical app origin (local testing: `http://localhost:3000`; production: your Vercel/custom domain). Allow that origin's `/auth/confirm` and `/auth/password` redirect paths. Keep separate Supabase projects for staging and production.
-5. Configure Authentication → Email Templates using these links. They deliberately use the trusted Site URL and token hashes so invitations and password recovery work across browsers and with server-side cookies:
-
-   **Invite user:**
-   ```html
-   <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Goal Track: Zugang einrichten</a>
-   ```
-   **Reset password:**
-   ```html
-   <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Goal Track: Passwort zurücksetzen</a>
-   ```
-
-6. Invite each partner through Authentication → Users → Invite user. The migration creates an **inactive** profile for each account, including existing accounts. Activate the intended partner and set their display name from the trusted SQL Editor:
+3. Under Authentication → Sign In / Providers → Email, leave email/password sign-in enabled and **disable public sign-ups**. Set a minimum password length of 12. This manual-account workflow does not require SMTP. Do not use “Send invitation”: it sends an email that may be blocked without a custom SMTP provider.
+4. Under Authentication → Users, click **Add user → Create new user**. Enter the partner's real email address and a unique, strong temporary password. Leave **Auto confirm user?** checked. Supabase states that this form does not send a confirmation email. The existing database trigger creates an **inactive** profile, so creating an Auth user alone does not grant team access.
+5. Activate the partner and set the display name in the trusted SQL Editor after checking that the email is correct:
 
    ```sql
    update public.profiles
    set full_name = 'Partner Name', active = true
-   where id = (select id from auth.users where email = 'partner@example.com');
+   where id = (select id from auth.users where lower(email) = lower('partner@example.com'))
+   returning full_name, active;
    ```
 
-   Repeat for each actual partner. Partner accounts cannot activate themselves or change membership through user metadata. To revoke access, set `active = false`; the dashboard, mutations, private rows and leaderboard enforce this membership state. Personal data stays stored until deliberately deleted by the operator.
-7. The partner follows the invitation, chooses a password and signs in. Password recovery is available on `/login`. There is no public registration page.
+   The query must return **one row** with the expected name and `active = true`. If it returns no rows, check the address in Authentication → Users and the SQL query before continuing. Repeat for each partner. Accounts cannot activate themselves through the app or user metadata. To revoke dashboard and data access, set `active = false`; Auth sign-in may still succeed but the app blocks the account. Personal data stays stored until deliberately deleted by the operator.
+
+6. Give the partner the app URL, email address and temporary password through a trusted private channel. The partner signs in at `/login`, opens **Mein Konto → Passwort ändern**, and enters the temporary and new password. The change requires the current password and does not send email. The administrator must reset a forgotten password through Supabase Auth administration; the public login page deliberately does not offer email recovery without SMTP. Never put passwords in SQL scripts, GitHub, screenshots or shared documents. There is no public registration page.
+
+For production set the Supabase **Site URL** to the canonical app origin. The old invite/recovery callback remains for installations that later configure SMTP, but is not part of this manual workflow. Keep separate Supabase projects for staging and production when available.
 
 ## Data and calculations
 
@@ -60,7 +53,7 @@ Open http://localhost:3000. Without Supabase environment variables, the root sho
 1. Create a GitHub repository and push this project, including `package-lock.json`. Do not commit `.env.local`.
 2. Import the repository in Vercel. Framework: **Next.js**. Use Node.js 24.x, install command `npm ci`, build command `npm run build`, and the default Next.js output directory.
 3. Add the two Supabase environment variables for Production (and your staging credentials for Preview if needed). Deploy.
-4. Set the production Supabase Site URL and redirect allowlist to the deployed origin. Configure the email templates/SMTP above and test invitation and recovery links with actual partner mailboxes.
+4. Set the production Supabase Site URL to the deployed origin, then create and activate partner accounts using the manual workflow above. No mail server is required.
 5. Vercel automatically builds deployments on GitHub pushes; the production branch updates production and pull requests receive previews. `.github/workflows/ci.yml` runs tests and the production build on pushes and PRs.
 
 No Vercel, GitHub or Supabase account was provisioned automatically. The build succeeds without credentials; actual private accounts and durable cross-user data require the setup above.
@@ -84,10 +77,10 @@ npm run build
 npm run test:e2e
 ```
 
-Automated tests cover calculations, decimal precision, date boundaries, leaderboard reordering and invalid inputs. Database tests execute the migration in an isolated PostgreSQL-compatible PGlite database to exercise row ownership, membership, aggregate totals and direct API-style writes. They emulate Supabase's `auth.uid()` and roles, not Supabase email delivery or the hosted Auth service. Browser tests verify entry creation, goal changes, leaderboard updates, filtering, deletion and login/recovery screens at desktop and iPhone-sized viewports. They use installed Microsoft Edge on Windows; on Linux, first run `npx playwright install --with-deps chromium`. CI runs these browser tests too.
+Automated tests cover calculations, decimal precision, date boundaries, leaderboard reordering and invalid inputs. Database tests execute the migration in an isolated PostgreSQL-compatible PGlite database to exercise row ownership, membership, aggregate totals and direct API-style writes. They emulate Supabase's `auth.uid()` and roles, not Supabase email delivery or the hosted Auth service. Browser tests verify entry creation, goal changes, leaderboard updates, filtering, deletion and the manual-account login screen at desktop and iPhone-sized viewports. They use installed Microsoft Edge on Windows; on Linux, first run `npx playwright install --with-deps chromium`. CI runs these browser tests too.
 
 The `--webpack` compiler option is intentional: it avoids a Turbopack incompatibility with Windows OneDrive reparse points in this workspace and is also supported on Vercel. Dependencies are pinned and the lockfile is committed-ready for reproducible installs. `npm run format` formats source files.
 
-Before production use, verify with two real invited accounts: add an entry as A, confirm A's metrics and B's team table update; confirm B cannot read/delete A's detail rows; reload to confirm persistence; change a monthly goal; test password recovery, mobile layout, account deactivation and the next-month boundary. Configure Supabase backups/retention and operational monitoring to match your team's needs.
+Before production use, verify with two real manually created accounts: add an entry as A, confirm A's metrics and B's team table update; confirm B cannot read/delete A's detail rows; reload to confirm persistence; change a monthly goal; test in-app password change with the temporary password, mobile layout, account deactivation and the next-month boundary. Configure Supabase backups/retention and operational monitoring to match your team's needs.
 
-Implementation references: [Next.js installation](https://nextjs.org/docs/app/getting-started/installation), [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs), [Supabase email templates](https://supabase.com/docs/guides/auth/auth-email-templates).
+Implementation references: [Next.js installation](https://nextjs.org/docs/app/getting-started/installation), [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs), [Supabase admin user creation](https://supabase.com/docs/reference/javascript/auth-admin-createuser), [Supabase password changes](https://supabase.com/docs/guides/auth/passwords).

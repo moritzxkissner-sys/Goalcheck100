@@ -2,25 +2,22 @@
 import { useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, LockKeyhole, Target } from "lucide-react";
-import { login, resetPassword, updatePassword } from "@/app/login/actions";
+import { changePassword, login, updatePassword } from "@/app/login/actions";
 export default function AuthForm({
   mode = "login",
   notice = "",
 }: {
-  mode?: "login" | "password";
+  mode?: "login" | "password" | "change-password";
   notice?: string;
 }) {
-  const [reset, setReset] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [pending, startTransition] = useTransition();
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setSuccess("");
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
-    if (mode === "password" && password !== form.get("confirm")) {
+    if (mode !== "login" && password !== form.get("confirm")) {
       setError("Die Passwörter stimmen nicht überein.");
       return;
     }
@@ -30,12 +27,13 @@ export default function AuthForm({
         const result =
           mode === "password"
             ? await updatePassword(password)
-            : reset
-              ? await resetPassword(String(form.get("email")))
+            : mode === "change-password"
+              ? await changePassword(
+                  String(form.get("current_password")),
+                  password,
+                )
               : await login(String(form.get("email")), password);
         if (result?.error) setError(result.error);
-        if (result && "success" in result && result.success)
-          setSuccess(result.success);
       } catch (e) {
         if (e instanceof Error && e.message.includes("NEXT_REDIRECT")) throw e;
         setError("Keine Verbindung. Bitte versuche es erneut.");
@@ -55,18 +53,14 @@ export default function AuthForm({
           </span>
         </Link>
         <h1>
-          {mode === "password"
+          {mode === "password" || mode === "change-password"
             ? "Dein neues Passwort."
-            : reset
-              ? "Neuer Zugang zu deinen Zielen."
-              : "Willkommen zurück."}
+            : "Willkommen zurück."}
         </h1>
         <p>
-          {mode === "password"
+          {mode === "password" || mode === "change-password"
             ? "Wähle ein sicheres Passwort für deinen persönlichen Bereich."
-            : reset
-              ? "Wir senden dir einen Link zum Zurücksetzen."
-              : "Melde dich an und bring deine Ziele auf Kurs."}
+            : "Melde dich an und bring deine Ziele auf Kurs."}
         </p>
         {notice && <div className="auth-message">{notice}</div>}
         <form className="form" onSubmit={submit}>
@@ -83,27 +77,34 @@ export default function AuthForm({
               />
             </label>
           )}
-          {!reset && (
+          {mode === "change-password" && (
             <label>
-              {mode === "password" ? "Neues Passwort" : "Passwort"}
+              Bisheriges Passwort
               <input
-                name="password"
+                name="current_password"
                 type="password"
-                autoComplete={
-                  mode === "password" ? "new-password" : "current-password"
-                }
-                minLength={mode === "password" ? 12 : undefined}
-                maxLength={128}
-                placeholder={
-                  mode === "password"
-                    ? "Mindestens 12 Zeichen"
-                    : "Dein Passwort"
-                }
+                autoComplete="current-password"
                 required
               />
             </label>
           )}
-          {mode === "password" && (
+          <label>
+            {mode === "login" ? "Passwort" : "Neues Passwort"}
+            <input
+              name="password"
+              type="password"
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+              minLength={mode === "login" ? undefined : 12}
+              maxLength={128}
+              placeholder={
+                mode !== "login" ? "Mindestens 12 Zeichen" : "Dein Passwort"
+              }
+              required
+            />
+          </label>
+          {mode !== "login" && (
             <label>
               Passwort bestätigen
               <input
@@ -121,18 +122,11 @@ export default function AuthForm({
               {error}
             </p>
           )}
-          {success && (
-            <p className="auth-message" role="status">
-              {success}
-            </p>
-          )}
           <button className="primary full-width" disabled={pending}>
             {pending ? (
               "Einen Moment …"
-            ) : mode === "password" ? (
+            ) : mode !== "login" ? (
               "Passwort speichern"
-            ) : reset ? (
-              "Link anfordern"
             ) : (
               <>
                 Anmelden <ArrowRight size={17} />
@@ -142,16 +136,7 @@ export default function AuthForm({
         </form>
         {mode === "login" && (
           <div className="auth-links">
-            <button
-              className="text-button"
-              onClick={() => {
-                setReset(!reset);
-                setError("");
-                setSuccess("");
-              }}
-            >
-              {reset ? "Zurück zur Anmeldung" : "Passwort vergessen?"}
-            </button>
+            <span>Passwort vergessen? Wende dich an deine Teamleitung.</span>
             <a className="text-button" href="/demo">
               Demo ansehen
             </a>
