@@ -1,4 +1,88 @@
 @import "tailwindcss";
+
+.team-performance-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.performance-card {
+  padding: 26px;
+  min-width: 0;
+}
+.performance-card h2 {
+  color: #78b0ff;
+}
+.performance-value {
+  font-size: 32px;
+  font-weight: 650;
+  margin: 24px 0 18px;
+  overflow-wrap: anywhere;
+  letter-spacing: -1px;
+}
+.performance-value > span {
+  font-size: 14px;
+  color: #a3adbd;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.agency-card .agency-progress {
+  height: 9px;
+  width: 100%;
+}
+.performance-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 13px;
+  font-size: 13px;
+  color: #a3adbd;
+}
+.performance-caption strong {
+  color: #83b7ff;
+  font-weight: 500;
+}
+.performance-note {
+  font-size: 12px;
+  color: #a3adbd;
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+.daily-names {
+  margin-top: 22px;
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.daily-card .performance-value {
+  margin: 12px 0;
+}
+.daily-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #83b7ff;
+  font-size: 10px;
+  width: fit-content;
+  padding: 2px 7px;
+  border: 1px solid #428cff33;
+  background: #428cff12;
+  border-radius: 7px;
+  margin-top: 4px;
+}
+@media (max-width: 760px) {
+  .team-performance-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .performance-card {
+    padding: 20px;
+  }
+  .performance-value {
+    font-size: 27px;
+  }
+}
 @theme {
   --color-apple-blue: #438eff;
 }
@@ -1846,8 +1930,12 @@ select:focus {
 }
 
 /* Readable type and touch targets across working surfaces. */
-.metric-value { overflow-wrap: anywhere; }
-.heading-actions { flex-wrap: wrap; }
+.metric-value {
+  overflow-wrap: anywhere;
+}
+.heading-actions {
+  flex-wrap: wrap;
+}
 .metric-label,
 .partner,
 .category-list > div,

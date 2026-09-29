@@ -27,7 +27,7 @@ export async function addEntry(input: unknown) {
     if (!parsed.success)
       return {
         error:
-          "Bitte prüfe Betrag, Kategorie und Datum (max. 2 Nachkommastellen).",
+          "Bitte prüfe Betrag, Versicherung, Vertragsart und Datum (max. 2 Nachkommastellen).",
       };
     if (parsed.data.occurred_on > berlinDate())
       return { error: "Das Datum darf nicht in der Zukunft liegen." };
@@ -54,16 +54,14 @@ export async function saveGoal(input: unknown) {
     if (!parsed.success)
       return { error: "Bitte gib ein gültiges Monatsziel größer als 0 ein." };
     const { db, user } = await member();
-    const { error } = await db
-      .from("monthly_goals")
-      .upsert(
-        {
-          user_id: user.id,
-          month: `${parsed.data.month}-01`,
-          target: parsed.data.target,
-        },
-        { onConflict: "user_id,month" },
-      );
+    const { error } = await db.from("monthly_goals").upsert(
+      {
+        user_id: user.id,
+        month: `${parsed.data.month}-01`,
+        target: parsed.data.target,
+      },
+      { onConflict: "user_id,month" },
+    );
     if (error)
       return { error: "Das Monatsziel konnte nicht gespeichert werden." };
     revalidatePath("/");

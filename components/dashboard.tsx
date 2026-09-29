@@ -40,14 +40,17 @@ import { signOut } from "@/app/login/actions";
 import {
   berlinDate,
   calculateMetrics,
+  agencyMetrics,
+  dailyWinners,
   categories,
+  historicalCategories,
+  transactionTypes,
   currentMonth,
   initials,
   monthBounds,
   monthLabel,
   number,
   rankPartners,
-  type Category,
   type DashboardData,
   type Entry,
 } from "@/lib/metrics";
@@ -253,7 +256,8 @@ export default function Dashboard({
   demo?: boolean;
 }) {
   const router = useRouter();
-  const [data, setData] = useState(initial);
+  const [demoState, setData] = useState(initial);
+  const data = demo ? demoState : initial;
   const [view, setView] = useState<View>("overview");
   const [modal, setModal] = useState<
     "entry" | "goal" | "help" | "account" | null
@@ -265,18 +269,17 @@ export default function Dashboard({
   const [filter, setFilter] = useState("Alle");
   const entryId = useRef("");
   useEffect(() => {
-    if (!demo) setData(initial);
-  }, [initial, demo]);
-  useEffect(() => {
     if (demo) return;
     const refresh = () => {
       if (document.visibilityState === "visible") router.refresh();
     };
     const timer = setInterval(refresh, 15000);
     window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [router, demo]);
   useEffect(() => {
@@ -297,7 +300,13 @@ export default function Dashboard({
         : p,
     ),
   );
-  const teamTotal = partners.reduce((s, p) => s + p.total, 0);
+  const agency = agencyMetrics(partners);
+  const teamTotal = agency.total;
+  const winners = dailyWinners(data.daily.partners);
+  const winnerIds = new Set(winners.map((p) => p.user_id));
+  const visibleCategories = historicalCategories.filter(
+    (c) => c !== "Kfz" || data.entries.some((e) => e.category === "Kfz"),
+  );
   const rank = partners.findIndex((p) => p.user_id === data.userId) + 1;
   const shownEntries = data.entries.filter(
     (e) => filter === "Alle" || e.category === filter,
@@ -331,6 +340,7 @@ export default function Dashboard({
       id: entryId.current,
       amount: Number(String(form.get("amount")).replace(",", ".")),
       category: form.get("category"),
+      transaction_type: form.get("transaction_type"),
       occurred_on: form.get("occurred_on"),
       note: form.get("note"),
     };
@@ -350,13 +360,27 @@ export default function Dashboard({
             return;
           }
         }
-        if (parsed.data.occurred_on.startsWith(data.month))
+        if (demo)
           setData((old) => ({
             ...old,
-            entries: [
-              { ...parsed.data, user_id: old.userId },
-              ...old.entries,
-            ].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on)),
+            entries: parsed.data.occurred_on.startsWith(old.month)
+              ? [{ ...parsed.data, user_id: old.userId }, ...old.entries].sort(
+                  (a, b) => b.occurred_on.localeCompare(a.occurred_on),
+                )
+              : old.entries,
+            daily: {
+              ...old.daily,
+              partners: old.daily.partners.map((p) =>
+                p.user_id === old.userId &&
+                parsed.data.occurred_on === old.daily.date
+                  ? {
+                      ...p,
+                      total:
+                        Math.round((p.total + parsed.data.amount) * 100) / 100,
+                    }
+                  : p,
+              ),
+            },
           }));
         setModal(null);
         setMessage(
@@ -393,7 +417,7 @@ export default function Dashboard({
             return;
           }
         }
-        setData((old) => ({ ...old, target: input.target }));
+        if (demo) setData((old) => ({ ...old, target: input.target }));
         setModal(null);
         setMessage("Dein Monatsziel wurde gespeichert.");
         if (!demo) router.refresh();
@@ -414,10 +438,24 @@ export default function Dashboard({
             return;
           }
         }
-        setData((old) => ({
-          ...old,
-          entries: old.entries.filter((e) => e.id !== id),
-        }));
+        if (demo)
+          setData((old) => ({
+            ...old,
+            entries: old.entries.filter((e) => e.id !== id),
+            daily: {
+              ...old.daily,
+              partners: old.daily.partners.map((p) =>
+                p.user_id === old.userId &&
+                deleting.occurred_on === old.daily.date
+                  ? {
+                      ...p,
+                      total:
+                        Math.round((p.total - deleting.amount) * 100) / 100,
+                    }
+                  : p,
+              ),
+            },
+          }));
         setDeleting(null);
         setMessage("Eintrag gelöscht. Die BWS-Werte wurden aktualisiert.");
         if (!demo) router.refresh();
@@ -455,6 +493,14 @@ export default function Dashboard({
             <span>
               {p.full_name}
               {p.user_id === data.userId && <em>Du</em>}
+              {winnerIds.has(p.user_id) && (
+                <span
+                  className="daily-badge"
+                  title={`Tagessieg am ${data.daily.date} · aktueller Stand`}
+                >
+                  <Trophy size={12} /> Tagessieg
+                </span>
+              )}
             </span>
           </div>
           <strong role="cell">
@@ -857,7 +903,7 @@ export default function Dashboard({
                     <ShieldCheck size={19} className="muted" />
                   </div>
                   <div className="category-stack">
-                    {categories.map((c, i) => {
+                    {visibleCategories.map((c, i) => {
                       const value = data.entries
                         .filter((e) => e.category === c)
                         .reduce((s, e) => s + e.amount, 0);
@@ -874,7 +920,7 @@ export default function Dashboard({
                     })}
                   </div>
                   <div className="category-list">
-                    {categories
+                    {visibleCategories
                       .map((c, i) => ({
                         c,
                         i,
@@ -922,7 +968,7 @@ export default function Dashboard({
                   onChange={(e) => setFilter(e.target.value)}
                 >
                   <option>Alle</option>
-                  {categories.map((c) => (
+                  {visibleCategories.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </select>
@@ -938,6 +984,9 @@ export default function Dashboard({
                       <div className="entry-info">
                         <strong>{entry.category}</strong>
                         <span>
+                          {entry.transaction_type ??
+                            "Altbestand · Vertragsart nicht erfasst"}{" "}
+                          ·{" "}
                           {new Intl.DateTimeFormat("de-DE", {
                             day: "2-digit",
                             month: "short",
@@ -983,6 +1032,105 @@ export default function Dashboard({
 
           {view === "team" && (
             <>
+              <section
+                className="team-performance-grid"
+                aria-label="Teamziele und Tagessieg"
+              >
+                <article
+                  className="glass performance-card agency-card"
+                  data-testid="agency-goal"
+                >
+                  <div className="section-heading">
+                    <div>
+                      <h2>Monatsziel der Agentur</h2>
+                      <p>
+                        {monthLabel(data.month)} · {partners.length} aktive
+                        Partner
+                      </p>
+                    </div>
+                    <Target size={23} className="blue" />
+                  </div>
+                  <div className="performance-value">
+                    {number(agency.total, 2)}{" "}
+                    <span>/ {number(agency.target, 2)} BWS</span>
+                  </div>
+                  <div
+                    className="track agency-progress"
+                    role="progressbar"
+                    aria-label="Agenturziel erreicht"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.min(100, agency.progress)}
+                    aria-valuetext={`${number(agency.progress, 1)} Prozent erreicht`}
+                  >
+                    <i
+                      style={{ width: `${Math.min(100, agency.progress)}%` }}
+                    />
+                  </div>
+                  <div className="performance-caption">
+                    <strong>{number(agency.progress, 1)} % erreicht</strong>
+                    <span>
+                      {agency.remaining === 0 && agency.target > 0
+                        ? "Gemeinsam das Ziel erreicht!"
+                        : `Noch ${number(agency.remaining, 2)} BWS`}
+                    </span>
+                  </div>
+                  <p className="performance-note">
+                    Summe aller persönlichen Monatsziele.
+                  </p>
+                </article>
+                <article
+                  className="glass performance-card daily-card"
+                  data-testid="daily-winner"
+                >
+                  <div className="section-heading">
+                    <div>
+                      <h2>Tagessieg</h2>
+                      <p>
+                        {new Intl.DateTimeFormat("de-DE", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "UTC",
+                        }).format(
+                          new Date(`${data.daily.date}T12:00:00Z`),
+                        )}{" "}
+                        · Berlin
+                      </p>
+                    </div>
+                    <Trophy size={23} className="blue" />
+                  </div>
+                  {winners.length > 0 ? (
+                    <>
+                      <div className="daily-names">
+                        {winners.map((p) => p.full_name).join(" · ")}
+                      </div>
+                      <div className="performance-value">
+                        {number(winners[0].total, 2)}{" "}
+                        <span>
+                          BWS {winners.length > 1 ? "je Partner" : "heute"}
+                        </span>
+                      </div>
+                      <p className="performance-note">
+                        {winners.length > 1
+                          ? "Gemeinsam auf Platz 1"
+                          : "Heute auf Platz 1"}{" "}
+                        · aktueller Stand
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="daily-names">Heute ist alles offen.</div>
+                      <p className="performance-note">
+                        Noch keine BWS für heute erfasst.
+                      </p>
+                    </>
+                  )}
+                  <p className="performance-note">
+                    Nach Abschlussdatum · täglich neu ab 00:00 Uhr.
+                  </p>
+                </article>
+              </section>
               <section className="team-summary-grid">
                 <article className="metric glass">
                   <div className="metric-label">
@@ -1089,6 +1237,18 @@ export default function Dashboard({
               <select name="category" defaultValue="Rechtsschutz">
                 {categories.map((c) => (
                   <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Vertragsart
+              <select
+                name="transaction_type"
+                defaultValue="Neuvertrag"
+                required
+              >
+                {transactionTypes.map((type) => (
+                  <option key={type}>{type}</option>
                 ))}
               </select>
             </label>
@@ -1215,6 +1375,15 @@ export default function Dashboard({
               Deine Einzelabschlüsse bleiben privat. Das Team sieht Namen,
               Monatsziele und aggregierte BWS. Die Rangliste wird alle 15
               Sekunden und nach deinen Änderungen aktualisiert.
+            </p>
+            <h3>Agenturziel & Tagessieg</h3>
+            <p>
+              Das Agenturziel ist die Summe der Monatsziele aller aktiven
+              Partner. Ohne eigenes Monatsziel zählen pro Partner 10.000 BWS.
+              Der Tagessieg zeigt die höchsten BWS mit dem heutigen
+              Abschlussdatum in Berlin, unabhängig vom ausgewählten Monat. Bei
+              Gleichstand teilen sich die Führenden den Tagessieg. Der Stand
+              wird bis Tagesende laufend aktualisiert.
             </p>
             <h3>Dein Zugang</h3>
             <p>

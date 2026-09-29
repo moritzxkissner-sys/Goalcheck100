@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { categories } from "./metrics";
+import { categories, transactionTypes } from "./metrics";
 export const monthSchema = z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/);
 const amount = z.coerce
   .number()
@@ -21,6 +21,7 @@ export const entrySchema = z.object({
   id: z.uuid(),
   amount,
   category: z.enum(categories),
+  transaction_type: z.enum(transactionTypes),
   occurred_on: date,
   note: z.string().trim().max(160).default(""),
 });
