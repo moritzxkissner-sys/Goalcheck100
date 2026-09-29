@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition, type FormEvent } from "react";
+import Link from "next/link";
 import { ArrowRight, LockKeyhole, Target } from "lucide-react";
 import { login, resetPassword, updatePassword } from "@/app/login/actions";
 export default function AuthForm({
@@ -44,7 +45,7 @@ export default function AuthForm({
   return (
     <main className="auth-page">
       <section className="glass auth-card">
-        <a className="brand" href="/">
+        <Link className="brand" href="/">
           <span className="brand-mark">
             <Target size={35} />
           </span>
@@ -52,7 +53,7 @@ export default function AuthForm({
             Goal<span className="brand-light">Track</span>
             <small>SALES PERFORMANCE</small>
           </span>
-        </a>
+        </Link>
         <h1>
           {mode === "password"
             ? "Dein neues Passwort."
