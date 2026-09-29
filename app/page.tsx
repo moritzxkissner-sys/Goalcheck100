@@ -3,9 +3,11 @@ import Dashboard from "@/components/dashboard";
 import { isConfigured, supabaseServer } from "@/lib/supabase/server";
 import {
   currentMonth,
+  berlinDate,
   monthBounds,
   type Entry,
   type Partner,
+  type DailyPartner,
 } from "@/lib/metrics";
 import { monthSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
@@ -39,7 +41,7 @@ export default async function Home({
     for (let offset = 0; ; offset += 500) {
       const page = await db
         .from("sales_entries")
-        .select("id,user_id,amount,category,occurred_on,note")
+        .select("id,user_id,amount,category,transaction_type,occurred_on,note")
         .eq("user_id", user!.id)
         .gte("occurred_on", start)
         .lt("occurred_on", end)
@@ -52,7 +54,7 @@ export default async function Home({
       if (page.data.length < 500) return { data: rows, error: null };
     }
   }
-  const [entries, goal, team] = await Promise.all([
+  const [entries, goal, team, daily] = await Promise.all([
     loadEntries(),
     db
       .from("monthly_goals")
@@ -61,8 +63,9 @@ export default async function Home({
       .eq("month", start)
       .maybeSingle(),
     db.rpc("team_leaderboard", { selected_month: start }),
+    db.rpc("team_daily_leaderboard"),
   ]);
-  if (entries.error || goal.error || team.error)
+  if (entries.error || goal.error || team.error || daily.error)
     throw new Error(
       "Die Daten konnten nicht geladen werden. Bitte prüfe die Supabase-Einrichtung.",
     );
@@ -73,6 +76,14 @@ export default async function Home({
         name: profile.full_name,
         email: user.email ?? "",
         month,
+        daily: {
+          date: daily.data?.[0]?.day ?? berlinDate(),
+          partners: (daily.data ?? []).map((p: DailyPartner) => ({
+            user_id: p.user_id,
+            full_name: p.full_name,
+            total: Number(p.total),
+          })),
+        },
         target: Number(goal.data?.target ?? 10000),
         entries: (entries.data ?? []).map((e) => ({
           ...e,
