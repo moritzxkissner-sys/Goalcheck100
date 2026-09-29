@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack --hostname 0.0.0.0",
-    "build": "next build --webpack",
+    "build": "npm run lint && next build --webpack",
+    "lint": "eslint . --max-warnings=0",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
@@ -28,8 +29,10 @@
     "@types/node": "26.6.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
     "prettier": "3.9.9",
     "tsx": "4.23.15",
-    "typescript": "7.0.2"
+    "typescript": "6.0.2"
   }
 }
