@@ -1387,8 +1387,10 @@ export default function Dashboard({
             </p>
             <h3>Dein Zugang</h3>
             <p>
-              Deine Teamleitung lädt dich ein. Ein neues Passwort kannst du über
-              die Anmeldung anfordern.
+              Deine Teamleitung richtet deinen Zugang ein und gibt dir ein
+              Startpasswort. Nach der Anmeldung kannst du es unter „Mein Konto“
+              ändern. Wenn du es vergessen hast, wende dich an deine
+              Teamleitung.
             </p>
             {demo && (
               <p className="blue">
@@ -1407,6 +1409,11 @@ export default function Dashboard({
             <button className="secondary" onClick={() => setModal("help")}>
               Hilfe & Informationen
             </button>
+            {!demo && (
+              <a className="secondary" href="/account/password">
+                Passwort ändern
+              </a>
+            )}
             <form action={signOut}>
               <button className="primary full-width">
                 <LogOut size={17} />
