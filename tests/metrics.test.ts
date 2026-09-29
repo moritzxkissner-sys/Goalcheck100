@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   berlinDate,
+  agencyMetrics,
+  dailyWinners,
   calculateMetrics,
   monthBounds,
   rankPartners,
@@ -11,7 +13,8 @@ import { entrySchema, goalSchema } from "../lib/validation";
 const entry = (amount: number, occurred_on = "2026-09-12"): Entry => ({
   id: "280e6fa2-8686-4e6c-9e73-a75022f2bf75",
   user_id: "test",
-  category: "Kfz",
+  category: "Rechtsschutz",
+  transaction_type: "Neuvertrag",
   amount,
   occurred_on,
   note: "",
@@ -63,6 +66,23 @@ test("reject invalid amounts, categories, dates, ids and goal months", () => {
     assert.equal(entrySchema.safeParse(entry(amount)).success, false);
   assert.equal(entrySchema.safeParse(entry(10.25)).success, true);
   assert.equal(
+    entrySchema.safeParse({ ...entry(10), category: "Kfz" }).success,
+    false,
+  );
+  for (const transaction_type of [null, undefined, "Other", ""]) {
+    assert.equal(
+      entrySchema.safeParse({ ...entry(10), transaction_type }).success,
+      false,
+    );
+  }
+  assert.equal(
+    entrySchema.safeParse({
+      ...entry(10),
+      transaction_type: "Vertragsumstellung",
+    }).success,
+    true,
+  );
+  assert.equal(
     entrySchema.safeParse({ ...entry(10), occurred_on: "2026-02-30" }).success,
     false,
   );
@@ -82,4 +102,48 @@ test("reject invalid amounts, categories, dates, ids and goal months", () => {
     goalSchema.safeParse({ month: "2026-09", target: 10000 }).success,
     true,
   );
+});
+
+test("agency totals include targets, exact cents and overachievement", () => {
+  const p = { user_id: "a", full_name: "A", entry_count: 1 };
+  assert.deepEqual(agencyMetrics([]), {
+    total: 0,
+    target: 0,
+    remaining: 0,
+    progress: 0,
+  });
+  const result = agencyMetrics([
+    { ...p, total: 0.1, target: 0.1 },
+    { ...p, total: 0.2, target: 0.1 },
+  ]);
+  assert.equal(result.total, 0.3);
+  assert.equal(result.target, 0.2);
+  assert.equal(result.remaining, 0);
+  assert.ok(Math.abs(result.progress - 150) < 0.00001);
+});
+
+test("daily winner handles no sales, ties and reversals", () => {
+  const a = { user_id: "a", full_name: "A", total: 0 };
+  const b = { user_id: "b", full_name: "B", total: 0 };
+  assert.deepEqual(dailyWinners([]), []);
+  assert.deepEqual(dailyWinners([a, b]), []);
+  assert.deepEqual(
+    dailyWinners([
+      { ...a, total: 100 },
+      { ...b, total: 100 },
+    ]).map((p) => p.user_id),
+    ["a", "b"],
+  );
+  assert.equal(dailyWinners([a, { ...b, total: 50 }])[0].user_id, "b");
+});
+
+test("Berlin day switches at local midnight in summer, winter and DST", () => {
+  for (const [before, after, date] of [
+    ["2026-09-30T21:59:59Z", "2026-09-30T22:00:00Z", "2026-10-01"],
+    ["2026-12-31T22:59:59Z", "2026-12-31T23:00:00Z", "2027-01-01"],
+    ["2026-03-29T21:59:59Z", "2026-03-29T22:00:00Z", "2026-03-30"],
+  ]) {
+    assert.notEqual(berlinDate(new Date(before)), date);
+    assert.equal(berlinDate(new Date(after)), date);
+  }
 });
