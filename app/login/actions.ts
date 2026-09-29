@@ -56,6 +56,33 @@ export async function updatePassword(password: string) {
     };
   redirect("/");
 }
+export async function changePassword(
+  currentPassword: string,
+  password: string,
+) {
+  if (!isConfigured())
+    return { error: "Die Team-Anmeldung ist noch nicht eingerichtet." };
+  if (!currentPassword || password.length < 12 || password.length > 128)
+    return {
+      error:
+        "Bitte gib dein bisheriges und ein neues Passwort mit 12 bis 128 Zeichen ein.",
+    };
+  const db = await supabaseServer();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user) return { error: "Bitte melde dich erneut an." };
+  const { error } = await db.auth.updateUser({
+    password,
+    current_password: currentPassword,
+  });
+  if (error)
+    return {
+      error:
+        "Das Passwort konnte nicht geändert werden. Bitte prüfe dein bisheriges Passwort und versuche es erneut.",
+    };
+  redirect("/");
+}
 export async function signOut() {
   if (isConfigured()) {
     const db = await supabaseServer();
