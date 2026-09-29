@@ -1,6 +1,5 @@
 export const categories = [
   "Rechtsschutz",
-  "Kfz",
   "Haftpflicht",
   "Hausrat",
   "Wohngebäude",
@@ -9,11 +8,16 @@ export const categories = [
   "Sonstiges",
 ] as const;
 export type Category = (typeof categories)[number];
+// Historical Kfz records stay visible; only categories above can be entered.
+export const historicalCategories = [...categories, "Kfz"] as const;
+export const transactionTypes = ["Neuvertrag", "Vertragsumstellung"] as const;
+export type TransactionType = (typeof transactionTypes)[number];
 export type Entry = {
   id: string;
   user_id: string;
   amount: number;
-  category: Category;
+  category: Category | "Kfz";
+  transaction_type: TransactionType | null;
   occurred_on: string;
   note: string;
   created_at?: string;
@@ -33,7 +37,30 @@ export type DashboardData = {
   target: number;
   entries: Entry[];
   partners: Partner[];
+  daily: { date: string; partners: DailyPartner[] };
 };
+export type DailyPartner = Pick<Partner, "user_id" | "full_name" | "total">;
+export function agencyMetrics(partners: Partner[]) {
+  const total =
+    partners.reduce((s, p) => s + Math.round(p.total * 100), 0) / 100;
+  const target =
+    partners.reduce((s, p) => s + Math.round(p.target * 100), 0) / 100;
+  return {
+    total,
+    target,
+    remaining: Math.max(0, Math.round((target - total) * 100) / 100),
+    progress: target > 0 ? (total / target) * 100 : 0,
+  };
+}
+export function dailyWinners(partners: DailyPartner[]) {
+  const highest = Math.max(
+    0,
+    ...partners.map((p) => Math.round(p.total * 100)),
+  );
+  return partners
+    .filter((p) => highest > 0 && Math.round(p.total * 100) === highest)
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, "de"));
+}
 export function berlinDate(now = new Date()) {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Berlin",

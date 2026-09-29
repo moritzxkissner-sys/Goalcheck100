@@ -4,6 +4,7 @@ import {
   type DashboardData,
   type Entry,
   rankPartners,
+  type TransactionType,
 } from "./metrics";
 export function demoData(month = currentMonth()): DashboardData {
   const demoAmounts = [1250, 480, 1850, 620, 1500, 750, 2000];
@@ -17,7 +18,7 @@ export function demoData(month = currentMonth()): DashboardData {
       category: (
         [
           "Rechtsschutz",
-          "Kfz",
+          "Sonstiges",
           "Krankenversicherung",
           "Hausrat",
           "Wohngebäude",
@@ -27,6 +28,9 @@ export function demoData(month = currentMonth()): DashboardData {
       )[i],
       occurred_on: `${month}-${String(Math.max(1, Math.round(((i + 1) * dayLimit) / 8))).padStart(2, "0")}`,
       note: "",
+      transaction_type: (i % 2 === 0
+        ? "Neuvertrag"
+        : "Vertragsumstellung") as TransactionType,
     }))
     .reverse();
   return {
@@ -36,6 +40,24 @@ export function demoData(month = currentMonth()): DashboardData {
     month,
     target: 10000,
     entries,
+    daily: {
+      date: berlinDate(),
+      partners: [
+        { user_id: "demo-steven", full_name: "Steven Prell", total: 1250 },
+        {
+          user_id: "demo-sabina",
+          full_name: "Sabina Schlegelmilch",
+          total: 750,
+        },
+        {
+          user_id: "demo-you",
+          full_name: "Berin Pretzer",
+          total: entries
+            .filter((e) => e.occurred_on === berlinDate())
+            .reduce((s, e) => s + e.amount, 0),
+        },
+      ],
+    },
     partners: rankPartners([
       {
         user_id: "demo-steven",
