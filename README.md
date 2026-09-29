@@ -24,7 +24,8 @@ Open http://localhost:3000. Without Supabase environment variables, the root sho
    ```sql
    update public.profiles
    set full_name = 'Partner Name', active = true
-   where id = (select id from auth.users where email = 'partner@example.com');
+   where id = (select id from auth.users where lower(email) = lower('partner@example.com'))
+   returning full_name, active;
    ```
 
    The query must return **one row** with the expected name and `active = true`. If it returns no rows, check the address in Authentication → Users and the SQL query before continuing. Repeat for each partner. Accounts cannot activate themselves through the app or user metadata. To revoke dashboard and data access, set `active = false`; Auth sign-in may still succeed but the app blocks the account. Personal data stays stored until deliberately deleted by the operator.
