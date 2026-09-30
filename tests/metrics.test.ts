@@ -7,6 +7,7 @@ import {
   calculateMetrics,
   monthBounds,
   rankPartners,
+  teamShareText,
   type Entry,
 } from "../lib/metrics";
 import { entrySchema, goalSchema } from "../lib/validation";
@@ -60,6 +61,30 @@ test("leaderboard reorders after personal BWS changes", () => {
   assert.equal(rankPartners(team)[0].user_id, "b");
   team[0].total += 250;
   assert.equal(rankPartners(team)[0].user_id, "a");
+});
+test("team share summary follows ranking and includes goals and production link", () => {
+  const team = [
+    {
+      user_id: "a",
+      full_name: "Anna",
+      total: 1200,
+      target: 3000,
+      entry_count: 1,
+    },
+    {
+      user_id: "b",
+      full_name: "Max",
+      total: 4500,
+      target: 5000,
+      entry_count: 2,
+    },
+  ];
+  const summary = teamShareText(team, "2026-09");
+  assert.match(summary, /1\. Max: 4\.500 BWS \/ Ziel 5\.000 BWS/);
+  assert.match(summary, /2\. Anna: 1\.200 BWS \/ Ziel 3\.000 BWS/);
+  assert.match(summary, /https:\/\/goalcheck\.vercel\.app/);
+  team[0].total = 6000;
+  assert.match(teamShareText(team, "2026-09"), /1\. Anna: 6\.000 BWS/);
 });
 test("reject invalid amounts, categories, dates, ids and goal months", () => {
   for (const amount of [0, -1, NaN, Infinity, 1.234, 1e10])
