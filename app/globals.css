@@ -6,6 +6,182 @@
   gap: 20px;
   margin-bottom: 20px;
 }
+
+.team-chart-card {
+  --chart-name: 190px;
+  --chart-label: 66px;
+  --chart-value: 108px;
+  --chart-gap: 18px;
+  padding: 24px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.team-chart-card .section-heading {
+  gap: 16px;
+}
+.team-chart-legend,
+.team-chart-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.team-chart-legend {
+  gap: 18px;
+  color: #a7b0bf;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.team-chart-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: block;
+}
+.team-chart-legend .achieved,
+.team-chart-bar.achieved {
+  background: #0a84ff;
+}
+.team-chart-legend .target,
+.team-chart-bar.target {
+  background: #8f9aaa;
+}
+.team-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-left: calc(var(--chart-name) + var(--chart-gap) + var(--chart-label));
+  padding-right: var(--chart-value);
+  margin: 25px 0 5px;
+  color: #7b8696;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.team-chart-members {
+  display: grid;
+}
+.team-chart-member {
+  display: grid;
+  grid-template-columns: var(--chart-name) minmax(0, 1fr);
+  gap: var(--chart-gap);
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  padding: 14px 0;
+}
+.team-chart-member > strong {
+  font-size: 13px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.team-chart-series {
+  display: grid;
+  gap: 7px;
+}
+.team-chart-line {
+  display: grid;
+  grid-template-columns: var(--chart-label) minmax(0, 1fr) var(--chart-value);
+  align-items: center;
+  min-width: 0;
+  font-size: 11px;
+  color: #9fa9b9;
+  font-variant-numeric: tabular-nums;
+}
+.team-chart-line > span:last-child {
+  color: #c4cedd;
+  text-align: right;
+}
+.team-chart-plot {
+  height: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.11) 1px,
+    transparent 1px
+  );
+  background-size: 25% 100%;
+}
+.team-chart-bar {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 4px;
+}
+.team-chart-bar.achieved {
+  box-shadow: 0 1px 7px rgba(10, 132, 255, 0.22);
+}
+.team-chart-bar.target {
+  opacity: 0.75;
+}
+.team-chart-footnote {
+  color: #7f899a;
+  font-size: 10px;
+  margin-top: 13px;
+}
+.team-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.team-share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(82, 152, 255, 0.27);
+  border-radius: 10px;
+  color: #8dbbff;
+  background: rgba(10, 132, 255, 0.1);
+  backdrop-filter: blur(14px);
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.team-share-button:hover,
+.team-share-button:focus-visible {
+  background: rgba(10, 132, 255, 0.2);
+  outline-color: #0a84ff;
+}
+@media (max-width: 760px) {
+  .team-chart-card {
+    --chart-name: 115px;
+    --chart-label: 58px;
+    --chart-value: 86px;
+    --chart-gap: 10px;
+    padding: 19px;
+  }
+  .team-chart-card .section-heading {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 540px) {
+  .team-chart-card {
+    --chart-label: 48px;
+    --chart-value: 76px;
+    padding: 17px;
+  }
+  .team-chart-axis {
+    padding-left: var(--chart-label);
+    margin-top: 18px;
+    font-size: 9px;
+  }
+  .team-chart-member {
+    display: block;
+  }
+  .team-chart-member > strong {
+    display: block;
+    margin-bottom: 8px;
+  }
+  .team-chart-line {
+    font-size: 10px;
+  }
+  .team-chart-legend {
+    font-size: 10px;
+  }
+  .team-table-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
 .performance-card {
   padding: 26px;
   min-width: 0;

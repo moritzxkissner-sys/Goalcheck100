@@ -24,6 +24,7 @@ import {
   LayoutDashboard,
   LogOut,
   Plus,
+  Share2,
   ShieldCheck,
   Sparkles,
   Target,
@@ -51,8 +52,10 @@ import {
   monthLabel,
   number,
   rankPartners,
+  teamShareText,
   type DashboardData,
   type Entry,
+  type Partner,
 } from "@/lib/metrics";
 import { entrySchema, goalSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
@@ -248,6 +251,89 @@ function ProgressChart({
   );
 }
 
+function TeamChart({ partners }: { partners: Partner[] }) {
+  const highest = Math.max(1, ...partners.flatMap((p) => [p.total, p.target]));
+  const roughStep = highest / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const step =
+    [1, 2, 5, 10]
+      .map((factor) => factor * magnitude)
+      .find((value) => value >= roughStep) ?? magnitude * 10;
+  const scale = step * 4;
+
+  return (
+    <article className="glass team-chart-card" data-testid="team-chart">
+      <div className="section-heading">
+        <div>
+          <h2>Team im Vergleich</h2>
+          <p>Erreichte BWS und persönliches Monatsziel</p>
+        </div>
+        <div className="team-chart-legend" aria-hidden="true">
+          <span>
+            <i className="achieved" /> Erreicht
+          </span>
+          <span>
+            <i className="target" /> Ziel
+          </span>
+        </div>
+      </div>
+      <div className="team-chart-axis" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((tick) => (
+          <span key={tick}>{number(tick * step)}</span>
+        ))}
+      </div>
+      <div
+        className="team-chart-members"
+        role="list"
+        aria-label="BWS-Vergleich nach Vertriebspartner"
+      >
+        {partners.map((partner) => (
+          <div
+            className="team-chart-member"
+            role="listitem"
+            key={partner.user_id}
+            aria-label={`${partner.full_name}: ${number(partner.total, 2)} BWS erreicht, Monatsziel ${number(partner.target, 2)} BWS`}
+          >
+            <strong>{partner.full_name}</strong>
+            <div className="team-chart-series" aria-hidden="true">
+              <div className="team-chart-line">
+                <span>Erreicht</span>
+                <div className="team-chart-plot">
+                  <i
+                    className="team-chart-bar achieved"
+                    style={{
+                      width: `${Math.min(100, (partner.total / scale) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span>{number(partner.total, 2)}</span>
+              </div>
+              <div className="team-chart-line">
+                <span>Ziel</span>
+                <div className="team-chart-plot">
+                  <i
+                    className="team-chart-bar target"
+                    style={{
+                      width: `${Math.min(100, (partner.target / scale) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span>{number(partner.target, 2)}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {partners.length === 0 && (
+          <p className="empty-copy">Noch keine Vertriebspartner vorhanden.</p>
+        )}
+      </div>
+      <p className="team-chart-footnote">
+        Skala und Balken passen sich dem aktuellen Teamstand an · BWS
+      </p>
+    </article>
+  );
+}
+
 export default function Dashboard({
   initial,
   demo = false,
@@ -311,6 +397,27 @@ export default function Dashboard({
   const shownEntries = data.entries.filter(
     (e) => filter === "Alle" || e.category === filter,
   );
+  async function shareTeam() {
+    const summary = teamShareText(partners, data.month, demo);
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "Goal Track · Unser Team",
+          text: summary,
+        });
+        return;
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError")
+          return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(summary);
+      setMessage("Team-Rangliste in die Zwischenablage kopiert.");
+    } catch {
+      setMessage("Teilen war nicht möglich. Bitte versuche es erneut.");
+    }
+  }
   const openEntry = () => {
     entryId.current = crypto.randomUUID();
     setError("");
@@ -1162,6 +1269,7 @@ export default function Dashboard({
                   <div className="metric-foot">Jeder Abschluss zählt.</div>
                 </article>
               </section>
+              <TeamChart partners={partners} />
               <article className="glass team-card full-team">
                 <div className="section-heading">
                   <div>
@@ -1171,9 +1279,18 @@ export default function Dashboard({
                     </h2>
                     <p>Unsere Performance im {monthLabel(data.month)}.</p>
                   </div>
-                  <span className="pill">
-                    {demo ? "Beispieldaten" : "Alle 15 Sek. aktualisiert"}
-                  </span>
+                  <div className="team-table-actions">
+                    <span className="pill">
+                      {demo ? "Beispieldaten" : "Alle 15 Sek. aktualisiert"}
+                    </span>
+                    <button
+                      className="team-share-button"
+                      type="button"
+                      onClick={shareTeam}
+                    >
+                      <Share2 size={16} /> Tabelle teilen
+                    </button>
+                  </div>
                 </div>
                 {teamTable()}
               </article>

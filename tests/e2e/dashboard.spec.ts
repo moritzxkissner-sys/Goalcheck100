@@ -69,6 +69,37 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     number(initialDaily + 2000, 2),
   );
   await expect(ownRow).toContainText("Tagessieg");
+  const ownChart = page.getByTestId("team-chart").getByRole("listitem", {
+    name: /Berin Pretzer/,
+  });
+  await expect(ownChart).toContainText("10.450");
+  await expect(ownChart).toContainText("12.000");
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "share", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (text: string) => {
+          (window as Window & { sharedTeamText?: string }).sharedTeamText =
+            text;
+        },
+      },
+      configurable: true,
+    });
+  });
+  await page.getByRole("button", { name: "Tabelle teilen" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Zwischenablage kopiert",
+  );
+  expect(
+    await page.evaluate(
+      () => (window as Window & { sharedTeamText?: string }).sharedTeamText,
+    ),
+  ).toMatch(
+    /Berin Pretzer: 10\.450 BWS \/ Ziel 12\.000 BWS[\s\S]*goalcheck\.vercel\.app/,
+  );
   const dismissToast = page.getByRole("button", { name: "Meldung schließen" });
   if (await dismissToast.isVisible()) await dismissToast.click();
   await page.screenshot({
@@ -121,6 +152,32 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+test("team share opens the native share dialog when supported", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", {
+      value: async (data: ShareData) => {
+        (window as Window & { sharedTeam?: ShareData }).sharedTeam = data;
+      },
+      configurable: true,
+    });
+  });
+  await page.goto("/demo");
+  await page
+    .getByRole("button", { name: "Team", exact: false })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "Tabelle teilen" }).click();
+  const shared = await page.evaluate(
+    () => (window as Window & { sharedTeam?: ShareData }).sharedTeam,
+  );
+  expect(shared?.title).toBe("Goal Track · Unser Team");
+  expect(shared?.text).toContain("Beispieldaten");
+  expect(shared?.text).toContain("https://goalcheck.vercel.app");
+  await expect(page.getByRole("status")).toHaveCount(0);
 });
 test("manual account login and invalid invitation states", async ({ page }) => {
   await page.goto("/login");

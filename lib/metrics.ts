@@ -117,6 +117,23 @@ export function rankPartners(partners: Partner[]) {
     (a, b) => b.total - a.total || a.full_name.localeCompare(b.full_name, "de"),
   );
 }
+export function teamShareText(
+  partners: Partner[],
+  month: string,
+  demo = false,
+) {
+  const lines = rankPartners(partners).map(
+    (partner, index) =>
+      `${index + 1}. ${partner.full_name}: ${number(partner.total, 2)} BWS / Ziel ${number(partner.target, 2)} BWS`,
+  );
+  return [
+    `Goal Track · Unser Team · ${monthLabel(month)}${demo ? " (Beispieldaten)" : ""}`,
+    "",
+    ...(lines.length ? lines : ["Noch keine Vertriebspartner vorhanden."]),
+    "",
+    "https://goalcheck.vercel.app",
+  ].join("\n");
+}
 export const number = (value: number, digits = 0) =>
   new Intl.NumberFormat("de-DE", { maximumFractionDigits: digits }).format(
     value,
