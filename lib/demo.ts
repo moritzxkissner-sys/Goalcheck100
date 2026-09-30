@@ -56,6 +56,9 @@ export function demoData(month = currentMonth()): DashboardData {
             .filter((e) => e.occurred_on === berlinDate())
             .reduce((s, e) => s + e.amount, 0),
         },
+        { user_id: "demo-johannes", full_name: "Johannes Bubb", total: 420 },
+        { user_id: "demo-vanessa", full_name: "Vanessa Holzinger", total: 0 },
+        { user_id: "demo-alina", full_name: "Alina Wolf", total: 0 },
       ],
     },
     partners: rankPartners([
