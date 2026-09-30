@@ -102,6 +102,14 @@
   text-align: center;
 }
 @media (max-width: 600px) {
+  .daily-earnings-card .section-heading,
+  .daily-earnings-card .team-table-actions {
+    flex-wrap: wrap;
+  }
+  .daily-earnings-card .team-table-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
   .daily-earnings-row {
     grid-template-columns: 28px minmax(0, 1fr) minmax(85px, auto);
     gap: 8px;
