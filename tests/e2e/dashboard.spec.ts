@@ -58,7 +58,10 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     .filter({ visible: true })
     .first()
     .click();
-  const ownRow = page.getByRole("row").filter({ hasText: "Berin Pretzer" });
+  const ownRow = page
+    .getByRole("table", { name: "Team-Rangliste" })
+    .getByRole("row")
+    .filter({ hasText: "Berin Pretzer" });
   await expect(page.getByTestId("agency-goal")).toContainText("52.230");
   await expect(page.getByTestId("agency-goal")).toContainText("67.000");
   await expect(page.getByTestId("daily-winner")).toContainText("Berin Pretzer");
@@ -68,6 +71,15 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   await expect(page.getByTestId("daily-winner")).toContainText(
     number(initialDaily + 2000, 2),
   );
+  const dailyTable = page.getByRole("table", {
+    name: "Tagesverdienst der Vertriebspartner",
+  });
+  const dailyRows = dailyTable.getByRole("row");
+  await expect(dailyRows).toHaveCount(7);
+  await expect(dailyRows.nth(1)).toContainText("Berin Pretzer");
+  await expect(dailyRows.nth(1)).toContainText("Tagessieger");
+  await expect(dailyRows.nth(1)).toContainText("€");
+  await expect(dailyRows.last()).toContainText("0,00 €");
   await expect(ownRow).toContainText("Tagessieg");
   const ownChart = page.getByTestId("team-chart").getByRole("listitem", {
     name: /Berin Pretzer/,
