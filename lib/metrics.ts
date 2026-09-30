@@ -61,6 +61,16 @@ export function dailyWinners(partners: DailyPartner[]) {
     .filter((p) => highest > 0 && Math.round(p.total * 100) === highest)
     .sort((a, b) => a.full_name.localeCompare(b.full_name, "de"));
 }
+export function rankDailyPartners(partners: DailyPartner[]) {
+  return [...partners].sort(
+    (a, b) => b.total - a.total || a.full_name.localeCompare(b.full_name, "de"),
+  );
+}
+export const euro = (value: number) =>
+  new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
 export function berlinDate(now = new Date()) {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Berlin",

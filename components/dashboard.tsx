@@ -43,6 +43,8 @@ import {
   calculateMetrics,
   agencyMetrics,
   dailyWinners,
+  rankDailyPartners,
+  euro,
   categories,
   historicalCategories,
   transactionTypes,
@@ -389,6 +391,7 @@ export default function Dashboard({
   const agency = agencyMetrics(partners);
   const teamTotal = agency.total;
   const winners = dailyWinners(data.daily.partners);
+  const dailyPartners = rankDailyPartners(data.daily.partners);
   const winnerIds = new Set(winners.map((p) => p.user_id));
   const visibleCategories = historicalCategories.filter(
     (c) => c !== "Kfz" || data.entries.some((e) => e.category === "Kfz"),
@@ -603,7 +606,7 @@ export default function Dashboard({
               {winnerIds.has(p.user_id) && (
                 <span
                   className="daily-badge"
-                  title={`Tagessieg am ${data.daily.date} · aktueller Stand`}
+                  title={`Tagessieg nach Tagesverdienst am ${data.daily.date} · aktueller Stand`}
                 >
                   <Trophy size={12} /> Tagessieg
                 </span>
@@ -1213,9 +1216,9 @@ export default function Dashboard({
                         {winners.map((p) => p.full_name).join(" · ")}
                       </div>
                       <div className="performance-value">
-                        {number(winners[0].total, 2)}{" "}
+                        {euro(winners[0].total)}{" "}
                         <span>
-                          BWS {winners.length > 1 ? "je Partner" : "heute"}
+                          {winners.length > 1 ? "je Partner" : "heute"}
                         </span>
                       </div>
                       <p className="performance-note">
@@ -1229,7 +1232,7 @@ export default function Dashboard({
                     <>
                       <div className="daily-names">Heute ist alles offen.</div>
                       <p className="performance-note">
-                        Noch keine BWS für heute erfasst.
+                        Noch keine Umsätze heute.
                       </p>
                     </>
                   )}
@@ -1238,6 +1241,84 @@ export default function Dashboard({
                   </p>
                 </article>
               </section>
+              <article
+                className="glass team-card daily-earnings-card"
+                data-testid="daily-earnings"
+              >
+                <div className="section-heading">
+                  <div>
+                    <h2>Tagesverdienst &amp; Tagessieg</h2>
+                    <p>
+                      {new Intl.DateTimeFormat("de-DE", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      }).format(new Date(`${data.daily.date}T12:00:00Z`))}
+                      {" · 1 BWS = 1 € · Berlin"}
+                    </p>
+                  </div>
+                  <Trophy size={23} className="blue" />
+                </div>
+                {winners.length === 0 ? (
+                  <p className="daily-empty">Noch keine Umsätze heute</p>
+                ) : (
+                  <div
+                    className="daily-earnings-table"
+                    role="table"
+                    aria-label="Tagesverdienst der Vertriebspartner"
+                  >
+                    <div
+                      className="daily-earnings-row daily-earnings-head"
+                      role="row"
+                    >
+                      <span role="columnheader">Rang</span>
+                      <span role="columnheader">Vertriebspartner</span>
+                      <span role="columnheader">Tagesverdienst</span>
+                    </div>
+                    {dailyPartners.map((partner, index) => {
+                      const isWinner = winnerIds.has(partner.user_id);
+                      const rank =
+                        dailyPartners.findIndex(
+                          (item) => item.total === partner.total,
+                        ) + 1;
+                      return (
+                        <div
+                          className={`daily-earnings-row ${isWinner ? "daily-earnings-winner" : ""}`}
+                          role="row"
+                          key={partner.user_id}
+                        >
+                          <span className="daily-rank" role="cell">
+                            {isWinner ? (
+                              <Trophy size={17} aria-label="Platz 1" />
+                            ) : (
+                              String(rank).padStart(2, "0")
+                            )}
+                          </span>
+                          <span className="daily-partner" role="cell">
+                            <span
+                              className={`avatar avatar-${index % 4}`}
+                              aria-hidden="true"
+                            >
+                              {initials(partner.full_name)}
+                            </span>
+                            <span className="daily-partner-name">
+                              {partner.full_name}
+                              {partner.user_id === data.userId && <em>Du</em>}
+                              {isWinner && (
+                                <span className="daily-winner-label">
+                                  Tagessieger
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          <strong role="cell">{euro(partner.total)}</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </article>
               <section className="team-summary-grid">
                 <article className="metric glass">
                   <div className="metric-label">
@@ -1497,10 +1578,11 @@ export default function Dashboard({
             <p>
               Das Agenturziel ist die Summe der Monatsziele aller aktiven
               Partner. Ohne eigenes Monatsziel zählen pro Partner 10.000 BWS.
-              Der Tagessieg zeigt die höchsten BWS mit dem heutigen
-              Abschlussdatum in Berlin, unabhängig vom ausgewählten Monat. Bei
-              Gleichstand teilen sich die Führenden den Tagessieg. Der Stand
-              wird bis Tagesende laufend aktualisiert.
+              Tagesverdienst und Tagessieg zeigen die höchsten BWS als
+              Euro-Betrag (1 BWS = 1 €) mit dem heutigen Abschlussdatum in
+              Berlin, unabhängig vom ausgewählten Monat. Bei Gleichstand teilen
+              sich die Führenden den Tagessieg. Der Stand wird bis Tagesende
+              laufend aktualisiert.
             </p>
             <h3>Dein Zugang</h3>
             <p>

@@ -4,6 +4,8 @@ import {
   berlinDate,
   agencyMetrics,
   dailyWinners,
+  rankDailyPartners,
+  euro,
   calculateMetrics,
   monthBounds,
   rankPartners,
@@ -160,6 +162,22 @@ test("daily winner handles no sales, ties and reversals", () => {
     ["a", "b"],
   );
   assert.equal(dailyWinners([a, { ...b, total: 50 }])[0].user_id, "b");
+});
+
+test("daily earnings sort by BWS and format one BWS as one euro", () => {
+  const daily = [
+    { user_id: "b", full_name: "B", total: 0 },
+    { user_id: "a", full_name: "A", total: 1250.5 },
+  ];
+  assert.deepEqual(
+    rankDailyPartners(daily).map((p) => p.user_id),
+    ["a", "b"],
+  );
+  assert.equal(euro(daily[1].total), "1.250,50 €");
+  assert.deepEqual(
+    daily.map((p) => p.user_id),
+    ["b", "a"],
+  );
 });
 
 test("Berlin day switches at local midnight in summer, winter and DST", () => {

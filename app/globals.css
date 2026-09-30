@@ -7,6 +7,130 @@
   margin-bottom: 20px;
 }
 
+.daily-earnings-card {
+  margin-bottom: 24px;
+}
+.daily-earnings-table {
+  margin-top: 22px;
+  border-top: 1px solid #ffffff18;
+}
+.daily-earnings-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) minmax(105px, auto);
+  align-items: center;
+  gap: 14px;
+  min-height: 68px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #ffffff12;
+  transition:
+    background-color 220ms ease,
+    box-shadow 220ms ease;
+}
+.daily-earnings-head {
+  min-height: 38px;
+  color: #8997aa;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+.daily-earnings-head > span:last-child,
+.daily-earnings-row > strong {
+  text-align: right;
+}
+.daily-earnings-row > strong {
+  color: #edf4ff;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.daily-earnings-winner {
+  background: linear-gradient(90deg, #0a84ff16, #0a84ff04 70%);
+  box-shadow: inset 2px 0 #0a84ff;
+}
+.daily-rank {
+  color: #91a0b6;
+  font-variant-numeric: tabular-nums;
+}
+.daily-earnings-winner .daily-rank {
+  color: #d8b86c;
+}
+.daily-partner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.daily-partner > .avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 35px;
+  height: 35px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.daily-partner-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.daily-partner-name em {
+  color: #87b9ff;
+  font-size: 11px;
+  font-style: normal;
+}
+.daily-winner-label {
+  border: 1px solid #d8b86c55;
+  border-radius: 999px;
+  background: #d8b86c18;
+  color: #e9cf92;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.daily-empty {
+  margin: 24px 0 4px;
+  padding: 28px 16px;
+  border: 1px solid #ffffff12;
+  border-radius: 16px;
+  background: #ffffff05;
+  color: #a9b5c7;
+  text-align: center;
+}
+@media (max-width: 600px) {
+  .daily-earnings-row {
+    grid-template-columns: 28px minmax(0, 1fr) minmax(85px, auto);
+    gap: 8px;
+    padding: 10px 3px;
+  }
+  .daily-earnings-row > strong {
+    font-size: 13px;
+  }
+  .daily-partner {
+    gap: 7px;
+  }
+  .daily-partner > .avatar {
+    flex-basis: 29px;
+    height: 29px;
+    font-size: 9px;
+  }
+  .daily-partner-name {
+    font-size: 12px;
+  }
+  .daily-earnings-head {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .daily-earnings-row {
+    transition: none;
+  }
+}
+
 .team-chart-card {
   --chart-name: 190px;
   --chart-label: 66px;
