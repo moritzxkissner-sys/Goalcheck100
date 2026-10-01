@@ -406,7 +406,7 @@ export default function Dashboard({
   const router = useRouter();
   const [demoState, setData] = useState(initial);
   const data = demo ? demoState : initial;
-  const [view, setView] = useState<View>("team");
+  const [view, setView] = useState<View>("overview");
   const [modal, setModal] = useState<
     "entry" | "goal" | "help" | "account" | null
   >(null);
@@ -656,9 +656,9 @@ export default function Dashboard({
     });
   }
   const nav = [
-    { id: "team" as const, label: "Team", icon: Users },
     { id: "overview" as const, label: "Übersicht", icon: LayoutDashboard },
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
+    { id: "team" as const, label: "Team", icon: Users },
   ];
   const teamTable = (compact = false) => (
     <div className="team-table" role="table" aria-label="Team-Rangliste">
@@ -1223,7 +1223,7 @@ export default function Dashboard({
               >
                 <div className="section-heading">
                   <div>
-                    <h2>Tages-BWS &amp; Tagessieg</h2>
+                    <h2>Tagesbewertung</h2>
                     <p>
                       {new Intl.DateTimeFormat("de-DE", {
                         day: "2-digit",
