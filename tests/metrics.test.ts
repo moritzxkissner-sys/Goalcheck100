@@ -5,11 +5,11 @@ import {
   agencyMetrics,
   dailyWinners,
   rankDailyPartners,
-  euro,
   calculateMetrics,
   monthBounds,
   rankPartners,
   teamShareText,
+  dailyShareText,
   type Entry,
 } from "../lib/metrics";
 import { entrySchema, goalSchema } from "../lib/validation";
@@ -88,6 +88,17 @@ test("team share summary follows ranking and includes goals and production link"
   team[0].total = 6000;
   assert.match(teamShareText(team, "2026-09"), /1\. Anna: 6\.000 BWS/);
 });
+test("daily share contains only today's ranked BWS and the app link", () => {
+  const daily = [
+    { user_id: "a", full_name: "Anna", total: 0 },
+    { user_id: "b", full_name: "Max", total: 4500 },
+  ];
+  const summary = dailyShareText(daily, "2026-09-30");
+  assert.match(summary, /Tagesrangliste · 30. September 2026/);
+  assert.match(summary, /1\. Max: 4\.500 BWS/);
+  assert.match(summary, /2\. Anna: 0 BWS/);
+  assert.match(summary, /goalcheck\.vercel\.app/);
+});
 test("reject invalid amounts, categories, dates, ids and goal months", () => {
   for (const amount of [0, -1, NaN, Infinity, 1.234, 1e10])
     assert.equal(entrySchema.safeParse(entry(amount)).success, false);
@@ -164,7 +175,7 @@ test("daily winner handles no sales, ties and reversals", () => {
   assert.equal(dailyWinners([a, { ...b, total: 50 }])[0].user_id, "b");
 });
 
-test("daily earnings sort by BWS and format one BWS as one euro", () => {
+test("daily BWS sort without changing the source data", () => {
   const daily = [
     { user_id: "b", full_name: "B", total: 0 },
     { user_id: "a", full_name: "A", total: 1250.5 },
@@ -173,7 +184,6 @@ test("daily earnings sort by BWS and format one BWS as one euro", () => {
     rankDailyPartners(daily).map((p) => p.user_id),
     ["a", "b"],
   );
-  assert.equal(euro(daily[1].total), "1.250,50 €");
   assert.deepEqual(
     daily.map((p) => p.user_id),
     ["b", "a"],

@@ -76,6 +76,31 @@ test("migration enforces private logs and live team aggregates", async () => {
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610010001_add_insurance_products.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    for (const category of [
+      "Recht und Heim",
+      "Reis Protect 365",
+      "Top Schutzbrief",
+      "Lebensversicherung",
+    ]) {
+      await asUser(A, () =>
+        db.query(
+          "insert into public.sales_entries(user_id,amount,category,transaction_type,occurred_on) values ($1,1,$2,'Neuvertrag','2020-10-01')",
+          [A, category],
+        ),
+      );
+    }
+    await asUser(A, () =>
+      db.query("delete from public.sales_entries where occurred_on = '2020-10-01'"),
+    );
     const legacy = await asUser(A, () =>
       db.query<{ category: string; transaction_type: string | null }>(
         "select category, transaction_type from public.sales_entries where category = 'Kfz'",
