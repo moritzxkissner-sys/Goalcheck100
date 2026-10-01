@@ -7,13 +7,24 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/demo");
-  await expect(page.getByRole("heading", { name: "Unser Team" })).toBeVisible();
-  await expect(page.getByTestId("daily-earnings")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Übersicht", exact: true })
-    .filter({ visible: true })
-    .first()
-    .click();
+  await expect(page.locator(".sidebar nav .nav-item").nth(0)).toContainText(
+    "Übersicht",
+  );
+  await expect(page.locator(".sidebar nav .nav-item").nth(1)).toContainText(
+    "Meine Einträge",
+  );
+  await expect(page.locator(".sidebar nav .nav-item").nth(2)).toContainText(
+    "Team",
+  );
+  await expect(page.locator(".mobile-nav button").nth(0)).toContainText(
+    "Übersicht",
+  );
+  await expect(page.locator(".mobile-nav button").nth(1)).toContainText(
+    "Meine Einträge",
+  );
+  await expect(page.locator(".mobile-nav button").nth(2)).toContainText(
+    "Team",
+  );
   await expect(
     page.getByRole("heading", { name: "Auf Kurs, Berin." }),
   ).toBeVisible();
@@ -65,6 +76,9 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     .filter({ visible: true })
     .first()
     .click();
+  await expect(page.getByRole("heading", { name: "Unser Team" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tagesbewertung" })).toBeVisible();
+  await expect(page.getByTestId("daily-earnings")).toBeVisible();
   const ownRow = page
     .getByRole("table", { name: "Team-Rangliste" })
     .getByRole("row")
@@ -199,6 +213,11 @@ test("daily share opens the native share dialog when supported", async ({
     });
   });
   await page.goto("/demo");
+  await page
+    .getByRole("button", { name: "Team", exact: false })
+    .filter({ visible: true })
+    .first()
+    .click();
   await page.getByRole("button", { name: "Tabelle teilen" }).click();
   const shared = await page.evaluate(
     () => (window as Window & { sharedTeam?: ShareData }).sharedTeam,
