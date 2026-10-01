@@ -7,6 +7,13 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/demo");
+  await expect(page.getByRole("heading", { name: "Unser Team" })).toBeVisible();
+  await expect(page.getByTestId("daily-earnings")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Übersicht", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
   await expect(
     page.getByRole("heading", { name: "Auf Kurs, Berin." }),
   ).toBeVisible();
@@ -29,7 +36,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     modal
       .getByRole("combobox", { name: "Versicherung", exact: true })
       .locator("option"),
-  ).toHaveCount(7);
+  ).toHaveCount(11);
   await expect(
     modal.locator('select[name="category"] option[value="Kfz"]'),
   ).toHaveCount(0);
@@ -54,7 +61,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   await expect(modal).not.toBeVisible();
   await expect(page.locator(".ring-content")).toContainText("87,1");
   await page
-    .getByRole("button", { name: "Team", exact: false })
+    .getByRole("button", { name: "Heute", exact: false })
     .filter({ visible: true })
     .first()
     .click();
@@ -72,15 +79,25 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     number(initialDaily + 2000, 2),
   );
   const dailyTable = page.getByRole("table", {
-    name: "Tagesverdienst der Vertriebspartner",
+    name: "Tages-BWS der Vertriebspartner",
   });
   const dailyRows = dailyTable.getByRole("row");
   await expect(dailyRows).toHaveCount(7);
   await expect(dailyRows.nth(1)).toContainText("Berin Pretzer");
   await expect(dailyRows.nth(1)).toContainText("Tagessieger");
-  await expect(dailyRows.nth(1)).toContainText("€");
-  await expect(dailyRows.last()).toContainText("0,00 €");
-  await expect(ownRow).toContainText("Tagessieg");
+  await expect(dailyRows.nth(1)).toContainText("BWS");
+  await expect(dailyRows.last()).toContainText("0 BWS");
+  await expect(ownRow).not.toContainText("Tagessieg");
+  const dailyChart = page.getByTestId("daily-chart").getByRole("listitem", {
+    name: /Berin Pretzer/,
+  });
+  await expect(dailyChart).toContainText(
+    `${number(initialDaily + 2000, 2)} BWS`,
+  );
+  await expect(page.getByTestId("daily-chart")).toContainText(
+    "Unsere Performance",
+  );
+  await expect(page.getByText("Team Abschlüsse im Monat")).toBeVisible();
   const ownChart = page.getByTestId("team-chart").getByRole("listitem", {
     name: /Berin Pretzer/,
   });
@@ -109,9 +126,14 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     await page.evaluate(
       () => (window as Window & { sharedTeamText?: string }).sharedTeamText,
     ),
-  ).toMatch(
-    /Berin Pretzer: 10\.450 BWS \/ Ziel 12\.000 BWS[\s\S]*goalcheck\.vercel\.app/,
+  ).toContain(
+    `Berin Pretzer: ${number(initialDaily + 2000, 2)} BWS`,
   );
+  expect(
+    await page.evaluate(
+      () => (window as Window & { sharedTeamText?: string }).sharedTeamText,
+    ),
+  ).toContain("goalcheck.vercel.app");
   const dismissToast = page.getByRole("button", { name: "Meldung schließen" });
   if (await dismissToast.isVisible()) await dismissToast.click();
   await page.screenshot({
@@ -165,7 +187,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     ),
   ).toBe(true);
 });
-test("team share opens the native share dialog when supported", async ({
+test("daily share opens the native share dialog when supported", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -177,16 +199,11 @@ test("team share opens the native share dialog when supported", async ({
     });
   });
   await page.goto("/demo");
-  await page
-    .getByRole("button", { name: "Team", exact: false })
-    .filter({ visible: true })
-    .first()
-    .click();
   await page.getByRole("button", { name: "Tabelle teilen" }).click();
   const shared = await page.evaluate(
     () => (window as Window & { sharedTeam?: ShareData }).sharedTeam,
   );
-  expect(shared?.title).toBe("Goal Track · Unser Team");
+  expect(shared?.title).toBe("Goal Track · Tagesrangliste");
   expect(shared?.text).toContain("Beispieldaten");
   expect(shared?.text).toContain("https://goalcheck.vercel.app");
   await expect(page.getByRole("status")).toHaveCount(0);
