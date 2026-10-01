@@ -8,7 +8,49 @@
 }
 
 .daily-earnings-card {
+  margin-bottom: 20px;
+}
+.daily-chart-card {
+  padding: 24px;
   margin-bottom: 24px;
+}
+.daily-chart-list {
+  margin-top: 20px;
+  border-top: 1px solid #ffffff18;
+}
+.daily-chart-item {
+  display: grid;
+  grid-template-columns: minmax(110px, 190px) minmax(0, 1fr) 110px;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  border-bottom: 1px solid #ffffff12;
+  font-size: 13px;
+}
+.daily-chart-item > span {
+  overflow-wrap: anywhere;
+  color: #dce6f4;
+}
+.daily-chart-item > strong {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.daily-chart-track {
+  height: 14px;
+  background-image: linear-gradient(90deg, #ffffff1c 1px, transparent 1px);
+  background-size: 25% 100%;
+  border-right: 1px solid #ffffff1c;
+}
+.daily-chart-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #0a84ff;
+  box-shadow: 0 1px 8px #0a84ff33;
+  transition: width 240ms ease;
 }
 .daily-earnings-table {
   margin-top: 22px;
@@ -102,6 +144,20 @@
   text-align: center;
 }
 @media (max-width: 600px) {
+  .daily-chart-card {
+    padding: 18px;
+  }
+  .daily-chart-item {
+    grid-template-columns: minmax(0, 1fr) 88px;
+    gap: 7px;
+    padding: 10px 0;
+  }
+  .daily-chart-item > span {
+    grid-column: 1 / -1;
+  }
+  .daily-chart-item > strong {
+    font-size: 11px;
+  }
   .daily-earnings-card .section-heading,
   .daily-earnings-card .team-table-actions {
     flex-wrap: wrap;
@@ -134,7 +190,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .daily-earnings-row {
+  .daily-earnings-row,
+  .daily-chart-track > i {
     transition: none;
   }
 }
