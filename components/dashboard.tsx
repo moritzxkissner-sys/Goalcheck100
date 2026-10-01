@@ -656,7 +656,7 @@ export default function Dashboard({
     });
   }
   const nav = [
-    { id: "team" as const, label: "Heute", icon: Users },
+    { id: "team" as const, label: "Team", icon: Users },
     { id: "overview" as const, label: "Übersicht", icon: LayoutDashboard },
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
   ];

@@ -61,7 +61,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   await expect(modal).not.toBeVisible();
   await expect(page.locator(".ring-content")).toContainText("87,1");
   await page
-    .getByRole("button", { name: "Heute", exact: false })
+    .getByRole("button", { name: "Team", exact: false })
     .filter({ visible: true })
     .first()
     .click();
