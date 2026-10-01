@@ -5,6 +5,10 @@ export const categories = [
   "Wohngebäude",
   "Unfall",
   "Krankenversicherung",
+  "Recht und Heim",
+  "Reis Protect 365",
+  "Top Schutzbrief",
+  "Lebensversicherung",
   "Sonstiges",
 ] as const;
 export type Category = (typeof categories)[number];
@@ -66,11 +70,6 @@ export function rankDailyPartners(partners: DailyPartner[]) {
     (a, b) => b.total - a.total || a.full_name.localeCompare(b.full_name, "de"),
   );
 }
-export const euro = (value: number) =>
-  new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
 export function berlinDate(now = new Date()) {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Berlin",
@@ -141,6 +140,30 @@ export function teamShareText(
     "",
     ...(lines.length ? lines : ["Noch keine Vertriebspartner vorhanden."]),
     "",
+    "https://goalcheck.vercel.app",
+  ].join("\n");
+}
+export function dailyShareText(
+  partners: DailyPartner[],
+  date: string,
+  demo = false,
+) {
+  const day = new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T12:00:00Z`));
+  const lines = rankDailyPartners(partners).map(
+    (partner, index) =>
+      `${index + 1}. ${partner.full_name}: ${number(partner.total, 2)} BWS`,
+  );
+  return [
+    `Goal Track · Tagesrangliste · ${day}${demo ? " (Beispieldaten)" : ""}`,
+    "",
+    ...(lines.length ? lines : ["Noch keine Vertriebspartner vorhanden."]),
+    "",
+    "Neue Runde täglich ab 00:00 Uhr (Berlin)",
     "https://goalcheck.vercel.app",
   ].join("\n");
 }
