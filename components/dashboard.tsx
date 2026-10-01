@@ -44,7 +44,6 @@ import {
   agencyMetrics,
   dailyWinners,
   rankDailyPartners,
-  euro,
   categories,
   historicalCategories,
   transactionTypes,
@@ -54,8 +53,9 @@ import {
   monthLabel,
   number,
   rankPartners,
-  teamShareText,
+  dailyShareText,
   type DashboardData,
+  type DailyPartner,
   type Entry,
   type Partner,
 } from "@/lib/metrics";
@@ -70,6 +70,10 @@ const categoryIcons = {
   Wohngebäude: House,
   Unfall: Cross,
   Krankenversicherung: HeartPulse,
+  "Recht und Heim": House,
+  "Reis Protect 365": ShieldCheck,
+  "Top Schutzbrief": ShieldCheck,
+  Lebensversicherung: HeartPulse,
   Sonstiges: Wallet,
 };
 const categoryColors = [
@@ -336,6 +340,62 @@ function TeamChart({ partners }: { partners: Partner[] }) {
   );
 }
 
+function DailyChart({
+  partners,
+  date,
+}: {
+  partners: DailyPartner[];
+  date: string;
+}) {
+  const ranked = rankDailyPartners(partners);
+  const scale = Math.max(1, ...ranked.map((partner) => partner.total));
+  const label = new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T12:00:00Z`));
+
+  return (
+    <article className="glass daily-chart-card" data-testid="daily-chart">
+      <div className="section-heading">
+        <div>
+          <h2>Unsere Performance</h2>
+          <p>{label} · BWS heute</p>
+        </div>
+        <Activity size={21} className="blue" aria-hidden="true" />
+      </div>
+      <div
+        className="daily-chart-list"
+        role="list"
+        aria-label="Tages-BWS im Vergleich"
+      >
+        {ranked.map((partner) => (
+          <div
+            className="daily-chart-item"
+            role="listitem"
+            key={partner.user_id}
+            aria-label={`${partner.full_name}: ${number(partner.total, 2)} BWS heute`}
+          >
+            <span>{partner.full_name}</span>
+            <div className="daily-chart-track" aria-hidden="true">
+              <i
+                style={{
+                  width: `${Math.min(100, (partner.total / scale) * 100)}%`,
+                }}
+              />
+            </div>
+            <strong>{number(partner.total, 2)} BWS</strong>
+          </div>
+        ))}
+      </div>
+      <p className="team-chart-footnote">
+        Aktualisiert sich mit jedem erfassten Abschluss.
+      </p>
+    </article>
+  );
+}
+
 export default function Dashboard({
   initial,
   demo = false,
@@ -346,7 +406,7 @@ export default function Dashboard({
   const router = useRouter();
   const [demoState, setData] = useState(initial);
   const data = demo ? demoState : initial;
-  const [view, setView] = useState<View>("overview");
+  const [view, setView] = useState<View>("team");
   const [modal, setModal] = useState<
     "entry" | "goal" | "help" | "account" | null
   >(null);
@@ -370,6 +430,27 @@ export default function Dashboard({
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [router, demo]);
+  useEffect(() => {
+    if (!demo) return;
+    const timer = setInterval(() => {
+      const today = berlinDate();
+      setData((old) =>
+        old.daily.date === today
+          ? old
+          : {
+              ...old,
+              daily: {
+                date: today,
+                partners: old.daily.partners.map((partner) => ({
+                  ...partner,
+                  total: 0,
+                })),
+              },
+            },
+      );
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [demo]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 5000);
@@ -400,12 +481,12 @@ export default function Dashboard({
   const shownEntries = data.entries.filter(
     (e) => filter === "Alle" || e.category === filter,
   );
-  async function shareTeam() {
-    const summary = teamShareText(partners, data.month, demo);
+  async function shareDaily() {
+    const summary = dailyShareText(dailyPartners, data.daily.date, demo);
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({
-          title: "Goal Track · Unser Team",
+          title: "Goal Track · Tagesrangliste",
           text: summary,
         });
         return;
@@ -416,7 +497,7 @@ export default function Dashboard({
     }
     try {
       await navigator.clipboard.writeText(summary);
-      setMessage("Team-Rangliste in die Zwischenablage kopiert.");
+      setMessage("Tagesrangliste in die Zwischenablage kopiert.");
     } catch {
       setMessage("Teilen war nicht möglich. Bitte versuche es erneut.");
     }
@@ -575,9 +656,9 @@ export default function Dashboard({
     });
   }
   const nav = [
+    { id: "team" as const, label: "Heute", icon: Users },
     { id: "overview" as const, label: "Übersicht", icon: LayoutDashboard },
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
-    { id: "team" as const, label: "Team", icon: Users },
   ];
   const teamTable = (compact = false) => (
     <div className="team-table" role="table" aria-label="Team-Rangliste">
@@ -603,14 +684,6 @@ export default function Dashboard({
             <span>
               {p.full_name}
               {p.user_id === data.userId && <em>Du</em>}
-              {winnerIds.has(p.user_id) && (
-                <span
-                  className="daily-badge"
-                  title={`Tagessieg nach Tagesverdienst am ${data.daily.date} · aktueller Stand`}
-                >
-                  <Trophy size={12} /> Tagessieg
-                </span>
-              )}
             </span>
           </div>
           <strong role="cell">
@@ -733,7 +806,7 @@ export default function Dashboard({
             <div>
               <div className="eyebrow">
                 {view === "team"
-                  ? "GEMEINSAM ERFOLGREICH"
+                  ? "HEUTE IM TEAM"
                   : "DEINE PERFORMANCE IM BLICK"}
               </div>
               <h1>
@@ -753,29 +826,31 @@ export default function Dashboard({
                   ? "Deine Ziele. Dein Fortschritt. Jeder Abschluss zählt."
                   : view === "entries"
                     ? "Alle deine Abschlüsse, an einem Ort."
-                    : "Gemeinsame Ziele. Individuelle Erfolge."}
+                    : "Eure BWS von heute. Jeden Tag eine neue Runde."}
               </p>
             </div>
             <div className="heading-actions">
-              <div className="month-switch">
-                <button
-                  aria-label="Vorheriger Monat"
-                  onClick={() => changeMonth(-1)}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span>
-                  <CalendarDays size={15} />
-                  {monthLabel(data.month)}
-                </span>
-                <button
-                  aria-label="Nächster Monat"
-                  disabled={data.month >= currentMonth()}
-                  onClick={() => changeMonth(1)}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
+              {view !== "team" && (
+                <div className="month-switch">
+                  <button
+                    aria-label="Vorheriger Monat"
+                    onClick={() => changeMonth(-1)}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span>
+                    <CalendarDays size={15} />
+                    {monthLabel(data.month)}
+                  </span>
+                  <button
+                    aria-label="Nächster Monat"
+                    disabled={data.month >= currentMonth()}
+                    onClick={() => changeMonth(1)}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
               <button className="primary add-button" onClick={openEntry}>
                 <Plus size={18} />
                 BWS hinzufügen
@@ -1142,6 +1217,101 @@ export default function Dashboard({
 
           {view === "team" && (
             <>
+              <article
+                className="glass team-card daily-earnings-card"
+                data-testid="daily-earnings"
+              >
+                <div className="section-heading">
+                  <div>
+                    <h2>Tages-BWS &amp; Tagessieg</h2>
+                    <p>
+                      {new Intl.DateTimeFormat("de-DE", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      }).format(new Date(`${data.daily.date}T12:00:00Z`))}
+                      {" · BWS · Berlin"}
+                    </p>
+                  </div>
+                  <div className="team-table-actions">
+                    <span className="pill">
+                      {demo ? "Beispieldaten" : "Alle 15 Sek. aktualisiert"}
+                    </span>
+                    <button
+                      className="team-share-button"
+                      type="button"
+                      onClick={shareDaily}
+                    >
+                      <Share2 size={16} /> Tabelle teilen
+                    </button>
+                  </div>
+                </div>
+                {winners.length === 0 && (
+                  <p className="daily-empty">
+                    Noch keine BWS heute. Jeder startet bei 0 BWS.
+                  </p>
+                )}
+                <div
+                  className="daily-earnings-table"
+                  role="table"
+                  aria-label="Tages-BWS der Vertriebspartner"
+                >
+                  <div
+                    className="daily-earnings-row daily-earnings-head"
+                    role="row"
+                  >
+                    <span role="columnheader">Rang</span>
+                    <span role="columnheader">Vertriebspartner</span>
+                    <span role="columnheader">BWS heute</span>
+                  </div>
+                  {dailyPartners.map((partner, index) => {
+                    const isWinner = winnerIds.has(partner.user_id);
+                    const rank =
+                      dailyPartners.findIndex(
+                        (item) => item.total === partner.total,
+                      ) + 1;
+                    return (
+                      <div
+                        className={`daily-earnings-row ${isWinner ? "daily-earnings-winner" : ""}`}
+                        role="row"
+                        key={partner.user_id}
+                      >
+                        <span className="daily-rank" role="cell">
+                          {isWinner ? (
+                            <Trophy size={17} aria-label="Platz 1" />
+                          ) : partner.total === 0 ? (
+                            "–"
+                          ) : (
+                            String(rank).padStart(2, "0")
+                          )}
+                        </span>
+                        <span className="daily-partner" role="cell">
+                          <span
+                            className={`avatar avatar-${index % 4}`}
+                            aria-hidden="true"
+                          >
+                            {initials(partner.full_name)}
+                          </span>
+                          <span className="daily-partner-name">
+                            {partner.full_name}
+                            {partner.user_id === data.userId && <em>Du</em>}
+                            {isWinner && (
+                              <span className="daily-winner-label">
+                                Tagessieger
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <strong role="cell">
+                          {number(partner.total, 2)} BWS
+                        </strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+              <DailyChart partners={dailyPartners} date={data.daily.date} />
               <section
                 className="team-performance-grid"
                 aria-label="Teamziele und Tagessieg"
@@ -1216,7 +1386,7 @@ export default function Dashboard({
                         {winners.map((p) => p.full_name).join(" · ")}
                       </div>
                       <div className="performance-value">
-                        {euro(winners[0].total)}{" "}
+                        {number(winners[0].total, 2)} BWS{" "}
                         <span>
                           {winners.length > 1 ? "je Partner" : "heute"}
                         </span>
@@ -1241,84 +1411,6 @@ export default function Dashboard({
                   </p>
                 </article>
               </section>
-              <article
-                className="glass team-card daily-earnings-card"
-                data-testid="daily-earnings"
-              >
-                <div className="section-heading">
-                  <div>
-                    <h2>Tagesverdienst &amp; Tagessieg</h2>
-                    <p>
-                      {new Intl.DateTimeFormat("de-DE", {
-                        day: "2-digit",
-                        month: "long",
-                        year: "numeric",
-                        timeZone: "UTC",
-                      }).format(new Date(`${data.daily.date}T12:00:00Z`))}
-                      {" · 1 BWS = 1 € · Berlin"}
-                    </p>
-                  </div>
-                  <Trophy size={23} className="blue" />
-                </div>
-                {winners.length === 0 ? (
-                  <p className="daily-empty">Noch keine Umsätze heute</p>
-                ) : (
-                  <div
-                    className="daily-earnings-table"
-                    role="table"
-                    aria-label="Tagesverdienst der Vertriebspartner"
-                  >
-                    <div
-                      className="daily-earnings-row daily-earnings-head"
-                      role="row"
-                    >
-                      <span role="columnheader">Rang</span>
-                      <span role="columnheader">Vertriebspartner</span>
-                      <span role="columnheader">Tagesverdienst</span>
-                    </div>
-                    {dailyPartners.map((partner, index) => {
-                      const isWinner = winnerIds.has(partner.user_id);
-                      const rank =
-                        dailyPartners.findIndex(
-                          (item) => item.total === partner.total,
-                        ) + 1;
-                      return (
-                        <div
-                          className={`daily-earnings-row ${isWinner ? "daily-earnings-winner" : ""}`}
-                          role="row"
-                          key={partner.user_id}
-                        >
-                          <span className="daily-rank" role="cell">
-                            {isWinner ? (
-                              <Trophy size={17} aria-label="Platz 1" />
-                            ) : (
-                              String(rank).padStart(2, "0")
-                            )}
-                          </span>
-                          <span className="daily-partner" role="cell">
-                            <span
-                              className={`avatar avatar-${index % 4}`}
-                              aria-hidden="true"
-                            >
-                              {initials(partner.full_name)}
-                            </span>
-                            <span className="daily-partner-name">
-                              {partner.full_name}
-                              {partner.user_id === data.userId && <em>Du</em>}
-                              {isWinner && (
-                                <span className="daily-winner-label">
-                                  Tagessieger
-                                </span>
-                              )}
-                            </span>
-                          </span>
-                          <strong role="cell">{euro(partner.total)}</strong>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </article>
               <section className="team-summary-grid">
                 <article className="metric glass">
                   <div className="metric-label">
@@ -1342,7 +1434,7 @@ export default function Dashboard({
                 </article>
                 <article className="metric glass">
                   <div className="metric-label">
-                    Team Abschlüsse <ShieldCheck size={18} />
+                    Team Abschlüsse im Monat <ShieldCheck size={18} />
                   </div>
                   <div className="metric-value">
                     {partners.reduce((s, p) => s + p.entry_count, 0)}
@@ -1359,18 +1451,6 @@ export default function Dashboard({
                       <span className="count-pill">{partners.length}</span>
                     </h2>
                     <p>Unsere Performance im {monthLabel(data.month)}.</p>
-                  </div>
-                  <div className="team-table-actions">
-                    <span className="pill">
-                      {demo ? "Beispieldaten" : "Alle 15 Sek. aktualisiert"}
-                    </span>
-                    <button
-                      className="team-share-button"
-                      type="button"
-                      onClick={shareTeam}
-                    >
-                      <Share2 size={16} /> Tabelle teilen
-                    </button>
                   </div>
                 </div>
                 {teamTable()}
@@ -1472,11 +1552,7 @@ export default function Dashboard({
                   required
                   min="2000-01-01"
                   max={berlinDate()}
-                  defaultValue={
-                    data.month === currentMonth()
-                      ? berlinDate()
-                      : `${data.month}-01`
-                  }
+                  defaultValue={berlinDate()}
                 />
               </label>
             </div>
@@ -1578,11 +1654,10 @@ export default function Dashboard({
             <p>
               Das Agenturziel ist die Summe der Monatsziele aller aktiven
               Partner. Ohne eigenes Monatsziel zählen pro Partner 10.000 BWS.
-              Tagesverdienst und Tagessieg zeigen die höchsten BWS als
-              Euro-Betrag (1 BWS = 1 €) mit dem heutigen Abschlussdatum in
-              Berlin, unabhängig vom ausgewählten Monat. Bei Gleichstand teilen
-              sich die Führenden den Tagessieg. Der Stand wird bis Tagesende
-              laufend aktualisiert.
+              Tages-BWS und Tagessieg zeigen die erfassten BWS mit dem heutigen
+              Abschlussdatum in Berlin, unabhängig vom ausgewählten Monat. Bei
+              Gleichstand teilen sich die Führenden den Tagessieg. Der Stand
+              wird bis Tagesende laufend aktualisiert.
             </p>
             <h3>Dein Zugang</h3>
             <p>
