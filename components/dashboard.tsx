@@ -533,7 +533,7 @@ export default function Dashboard({
       category: form.get("category"),
       transaction_type: form.get("transaction_type"),
       occurred_on: form.get("occurred_on"),
-      note: form.get("note"),
+      customer_name: form.get("customer_name"),
     };
     const parsed = entrySchema.safeParse(input);
     if (!parsed.success || String(input.occurred_on) > berlinDate()) {
@@ -555,9 +555,10 @@ export default function Dashboard({
           setData((old) => ({
             ...old,
             entries: parsed.data.occurred_on.startsWith(old.month)
-              ? [{ ...parsed.data, user_id: old.userId }, ...old.entries].sort(
-                  (a, b) => b.occurred_on.localeCompare(a.occurred_on),
-                )
+              ? [
+                  { ...parsed.data, note: "", user_id: old.userId },
+                  ...old.entries,
+                ].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on))
               : old.entries,
             daily: {
               ...old.daily,
@@ -1075,7 +1076,13 @@ export default function Dashboard({
                       Deine Platzierung
                     </span>
                     <strong>
-                      Platz {rank} <span>von {partners.length}</span>
+                      {rank > 0 ? (
+                        <>
+                          Platz {rank} <span>von {partners.length}</span>
+                        </>
+                      ) : (
+                        "Nicht in Teamwertung"
+                      )}
                     </strong>
                   </div>
                 </article>
@@ -1177,7 +1184,10 @@ export default function Dashboard({
                             month: "short",
                             year: "numeric",
                           }).format(new Date(entry.occurred_on + "T12:00:00"))}
-                          {entry.note && <> · {entry.note}</>}
+                          {entry.customer_name && (
+                            <> · Kunde: {entry.customer_name}</>
+                          )}
+                          {entry.note && <> · Notiz: {entry.note}</>}
                         </span>
                       </div>
                       <strong className="entry-amount">
@@ -1427,10 +1437,14 @@ export default function Dashboard({
                     Deine Platzierung <Trophy size={18} />
                   </div>
                   <div className="metric-value">
-                    {rank}
+                    {rank > 0 ? rank : "–"}
                     <span>/ {partners.length}</span>
                   </div>
-                  <div className="metric-foot">Sortiert nach erzielten BWS</div>
+                  <div className="metric-foot">
+                    {rank > 0
+                      ? "Sortiert nach erzielten BWS"
+                      : "Nicht in der Teamwertung"}
+                  </div>
                 </article>
                 <article className="metric glass">
                   <div className="metric-label">
@@ -1557,16 +1571,18 @@ export default function Dashboard({
               </label>
             </div>
             <label>
-              Notiz <span className="optional">optional</span>
+              Kundenname <span className="optional">optional</span>
               <input
-                name="note"
-                maxLength={160}
-                placeholder="z. B. Vertragsverlängerung"
+                name="customer_name"
+                maxLength={120}
+                autoComplete="off"
+                placeholder="Name des Kunden"
               />
             </label>
             <p className="form-hint">
               <ShieldCheck size={14} />
-              Bitte keine Kunden- oder Vertragsdaten eintragen.
+              Der Kundenname ist nur in deinen eigenen Einträgen sichtbar. Bitte
+              keine weiteren Kundendaten eintragen.
             </p>
             {error && (
               <p className="form-error" role="alert">
