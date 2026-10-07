@@ -22,9 +22,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   await expect(page.locator(".mobile-nav button").nth(1)).toContainText(
     "Meine Einträge",
   );
-  await expect(page.locator(".mobile-nav button").nth(2)).toContainText(
-    "Team",
-  );
+  await expect(page.locator(".mobile-nav button").nth(2)).toContainText("Team");
   await expect(
     page.getByRole("heading", { name: "Auf Kurs, Berin." }),
   ).toBeVisible();
@@ -58,12 +56,23 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     .getByRole("combobox", { name: "Versicherung", exact: true })
     .selectOption("Haftpflicht");
   await modal.getByLabel("BWS", { exact: true }).fill("2000");
-  await modal.getByLabel(/Notiz/).fill("Testabschluss");
+  await modal.getByLabel(/Kundenname/).fill("Kunde Test");
   await modal
     .getByRole("button", { name: "BWS hinzufügen", exact: true })
     .click();
   await expect(modal).not.toBeVisible();
   await expect(page.getByTestId("total-bws")).toContainText("10.450");
+  await page
+    .getByRole("button", { name: "Meine Einträge", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(page.getByText("Kunde: Kunde Test")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Übersicht", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
   await expect(page.locator(".ring-content")).toContainText("104,5");
   await expect(page.locator(".team-footer")).toContainText("Platz 2");
   await page.getByRole("button", { name: "Monatsziel anpassen" }).click();
@@ -77,7 +86,9 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Unser Team" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Tagesbewertung" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Tagesbewertung" }),
+  ).toBeVisible();
   await expect(page.getByTestId("daily-earnings")).toBeVisible();
   const ownRow = page
     .getByRole("table", { name: "Team-Rangliste" })
@@ -140,9 +151,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     await page.evaluate(
       () => (window as Window & { sharedTeamText?: string }).sharedTeamText,
     ),
-  ).toContain(
-    `Berin Pretzer: ${number(initialDaily + 2000, 2)} BWS`,
-  );
+  ).toContain(`Berin Pretzer: ${number(initialDaily + 2000, 2)} BWS`);
   expect(
     await page.evaluate(
       () => (window as Window & { sharedTeamText?: string }).sharedTeamText,
@@ -171,7 +180,7 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     .getByLabel("Nach Versicherung filtern")
     .selectOption("Haftpflicht");
   await expect(page.locator(".entry-row")).toHaveCount(1);
-  await expect(page.locator(".entry-row")).toContainText("Testabschluss");
+  await expect(page.locator(".entry-row")).toContainText("Kunde: Kunde Test");
   await expect(page.locator(".entry-row")).toContainText("Vertragsumstellung");
   await page
     .getByRole("button", { name: /Haftpflicht vom .* löschen/ })
