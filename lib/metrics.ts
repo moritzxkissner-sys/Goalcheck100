@@ -24,6 +24,7 @@ export type Entry = {
   transaction_type: TransactionType | null;
   occurred_on: string;
   note: string;
+  customer_name: string;
   created_at?: string;
 };
 export type Partner = {

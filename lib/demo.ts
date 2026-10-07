@@ -28,6 +28,7 @@ export function demoData(month = currentMonth()): DashboardData {
       )[i],
       occurred_on: `${month}-${String(Math.max(1, Math.round(((i + 1) * dayLimit) / 8))).padStart(2, "0")}`,
       note: "",
+      customer_name: "",
       transaction_type: (i % 2 === 0
         ? "Neuvertrag"
         : "Vertragsumstellung") as TransactionType,

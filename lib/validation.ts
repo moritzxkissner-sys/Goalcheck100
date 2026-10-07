@@ -23,6 +23,6 @@ export const entrySchema = z.object({
   category: z.enum(categories),
   transaction_type: z.enum(transactionTypes),
   occurred_on: date,
-  note: z.string().trim().max(160).default(""),
+  customer_name: z.string().trim().max(120).default(""),
 });
 export const goalSchema = z.object({ month: monthSchema, target: amount });
