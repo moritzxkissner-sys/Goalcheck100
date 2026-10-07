@@ -6,6 +6,7 @@ import {
   berlinDate,
   monthBounds,
   type Entry,
+  type Cancellation,
   type Partner,
   type DailyPartner,
 } from "@/lib/metrics";
@@ -56,8 +57,27 @@ export default async function Home({
       if (page.data.length < 500) return { data: rows, error: null };
     }
   }
-  const [entries, goal, team, daily] = await Promise.all([
+  async function loadCancellations() {
+    const rows: Cancellation[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const page = await db
+        .from("cancellation_entries")
+        .select("id,user_id,amount,occurred_on,reason")
+        .eq("user_id", user!.id)
+        .gte("occurred_on", start)
+        .lt("occurred_on", end)
+        .order("occurred_on", { ascending: false })
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(offset, offset + 499);
+      if (page.error) return { data: rows, error: page.error };
+      rows.push(...(page.data as Cancellation[]));
+      if (page.data.length < 500) return { data: rows, error: null };
+    }
+  }
+  const [entries, cancellations, goal, team, daily] = await Promise.all([
     loadEntries(),
+    loadCancellations(),
     db
       .from("monthly_goals")
       .select("target")
@@ -67,7 +87,13 @@ export default async function Home({
     db.rpc("team_leaderboard", { selected_month: start }),
     db.rpc("team_daily_leaderboard"),
   ]);
-  if (entries.error || goal.error || team.error || daily.error)
+  if (
+    entries.error ||
+    cancellations.error ||
+    goal.error ||
+    team.error ||
+    daily.error
+  )
     throw new Error(
       "Die Daten konnten nicht geladen werden. Bitte prüfe die Supabase-Einrichtung.",
     );
@@ -91,6 +117,10 @@ export default async function Home({
           ...e,
           amount: Number(e.amount),
         })) as Entry[],
+        cancellations: (cancellations.data ?? []).map((c) => ({
+          ...c,
+          amount: Number(c.amount),
+        })) as Cancellation[],
         partners: (team.data ?? []).map((p: Partner) => ({
           ...p,
           total: Number(p.total),
