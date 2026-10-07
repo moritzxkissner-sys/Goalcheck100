@@ -41,7 +41,9 @@ export default async function Home({
     for (let offset = 0; ; offset += 500) {
       const page = await db
         .from("sales_entries")
-        .select("id,user_id,amount,category,transaction_type,occurred_on,note")
+        .select(
+          "id,user_id,amount,category,transaction_type,occurred_on,note,customer_name",
+        )
         .eq("user_id", user!.id)
         .gte("occurred_on", start)
         .lt("occurred_on", end)
