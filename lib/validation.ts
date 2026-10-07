@@ -25,4 +25,10 @@ export const entrySchema = z.object({
   occurred_on: date,
   customer_name: z.string().trim().max(120).default(""),
 });
+export const cancellationSchema = z.object({
+  id: z.uuid(),
+  amount,
+  occurred_on: date,
+  reason: z.string().trim().max(120).default(""),
+});
 export const goalSchema = z.object({ month: monthSchema, target: amount });

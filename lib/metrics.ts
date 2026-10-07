@@ -27,6 +27,14 @@ export type Entry = {
   customer_name: string;
   created_at?: string;
 };
+export type Cancellation = {
+  id: string;
+  user_id: string;
+  amount: number;
+  occurred_on: string;
+  reason: string;
+  created_at?: string;
+};
 export type Partner = {
   user_id: string;
   full_name: string;
@@ -41,6 +49,7 @@ export type DashboardData = {
   month: string;
   target: number;
   entries: Entry[];
+  cancellations: Cancellation[];
   partners: Partner[];
   daily: { date: string; partners: DailyPartner[] };
 };
@@ -54,7 +63,7 @@ export function agencyMetrics(partners: Partner[]) {
     total,
     target,
     remaining: Math.max(0, Math.round((target - total) * 100) / 100),
-    progress: target > 0 ? (total / target) * 100 : 0,
+    progress: target > 0 ? Math.max(0, (total / target) * 100) : 0,
   };
 }
 export function dailyWinners(partners: DailyPartner[]) {
@@ -95,10 +104,20 @@ export function calculateMetrics(
   target: number,
   month: string,
   today = berlinDate(),
+  cancellations: Cancellation[] = [],
 ) {
   const relevant = entries.filter((e) => e.occurred_on.startsWith(month));
-  const total =
+  const relevantCancellations = cancellations.filter((c) =>
+    c.occurred_on.startsWith(month),
+  );
+  const gross =
     relevant.reduce((sum, e) => sum + Math.round(e.amount * 100), 0) / 100;
+  const storno =
+    relevantCancellations.reduce(
+      (sum, cancellation) => sum + Math.round(cancellation.amount * 100),
+      0,
+    ) / 100;
+  const total = Math.round((gross - storno) * 100) / 100;
   const { days } = monthBounds(month);
   const elapsed =
     month < today.slice(0, 7)
@@ -111,11 +130,16 @@ export function calculateMetrics(
     elapsed > 0 ? Math.round((total / elapsed) * days * 100) / 100 : 0;
   return {
     total,
+    gross,
+    storno,
     remaining,
-    progress: target > 0 ? Math.round((total / target) * 10000) / 100 : 0,
+    progress:
+      target > 0 ? Math.max(0, Math.round((total / target) * 10000) / 100) : 0,
     forecast,
     forecastPercent:
-      target > 0 ? Math.round((forecast / target) * 10000) / 100 : 0,
+      target > 0
+        ? Math.max(0, Math.round((forecast / target) * 10000) / 100)
+        : 0,
     dailyNeeded: elapsed < days ? remaining / (days - elapsed) : remaining,
     days,
     elapsed,

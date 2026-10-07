@@ -236,6 +236,43 @@ test("daily share opens the native share dialog when supported", async ({
   expect(shared?.text).toContain("https://goalcheck.vercel.app");
   await expect(page.getByRole("status")).toHaveCount(0);
 });
+test("storno is booked separately and reduces net BWS without deleting a sale", async ({
+  page,
+}) => {
+  await page.goto("/demo");
+  await page.getByRole("button", { name: "Storno eintragen" }).click();
+  const modal = page.getByRole("dialog", { name: "Storno eintragen" });
+  await modal.getByRole("textbox", { name: "Storno in BWS" }).fill("1000");
+  await modal.getByRole("textbox", { name: /Grund/ }).fill("Widerruf");
+  await modal.getByRole("button", { name: "Storno speichern" }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(page.getByTestId("total-bws")).toContainText("7.450");
+  await page
+    .getByRole("button", { name: "Meine Einträge", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: /Deine Stornos/ }),
+  ).toBeVisible();
+  await expect(page.locator(".storno-card")).toContainText("−1.000 BWS");
+  await expect(page.locator(".storno-card")).toContainText("Widerruf");
+  await expect(
+    page.locator(".entries-card").first().locator(".entry-row"),
+  ).toHaveCount(7);
+  await page.getByRole("button", { name: /Storno vom .* löschen/ }).click();
+  await page
+    .getByRole("dialog", { name: "Storno löschen?" })
+    .getByRole("button", { name: "Storno löschen" })
+    .click();
+  await expect(page.locator(".storno-card")).toContainText("keine Stornos");
+  await page
+    .getByRole("button", { name: "Übersicht", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(page.getByTestId("total-bws")).toContainText("8.450");
+});
 test("manual account login and invalid invitation states", async ({ page }) => {
   await page.goto("/login");
   await expect(

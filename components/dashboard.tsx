@@ -36,7 +36,13 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { addEntry, removeEntry, saveGoal } from "@/app/actions";
+import {
+  addCancellation,
+  addEntry,
+  removeCancellation,
+  removeEntry,
+  saveGoal,
+} from "@/app/actions";
 import { signOut } from "@/app/login/actions";
 import {
   berlinDate,
@@ -55,11 +61,12 @@ import {
   rankPartners,
   dailyShareText,
   type DashboardData,
+  type Cancellation,
   type DailyPartner,
   type Entry,
   type Partner,
 } from "@/lib/metrics";
-import { entrySchema, goalSchema } from "@/lib/validation";
+import { cancellationSchema, entrySchema, goalSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
 
 const categoryIcons = {
@@ -136,10 +143,12 @@ function Modal({
 
 function ProgressChart({
   entries,
+  cancellations,
   target,
   month,
 }: {
   entries: Entry[];
+  cancellations: Cancellation[];
   target: number;
   month: string;
 }) {
@@ -151,20 +160,26 @@ function ProgressChart({
       : month < today.slice(0, 7)
         ? days
         : 0;
-  const max = Math.max(
-    target * 1.15,
-    calculateMetrics(entries, target, month).total * 1.15,
-    1,
+  const cumulative = Array.from(
+    { length: lastDay + 1 },
+    (_, i) =>
+      Math.round(
+        (entries
+          .filter((e) => Number(e.occurred_on.slice(8)) <= i)
+          .reduce((s, e) => s + e.amount, 0) -
+          cancellations
+            .filter((c) => Number(c.occurred_on.slice(8)) <= i)
+            .reduce((s, c) => s + c.amount, 0)) *
+          100,
+      ) / 100,
   );
-  const cumulative = Array.from({ length: lastDay + 1 }, (_, i) =>
-    entries
-      .filter((e) => Number(e.occurred_on.slice(8)) <= i)
-      .reduce((s, e) => s + e.amount, 0),
-  );
-  const points = cumulative.map(
-    (v, i) => `${40 + (i / days) * 620},${170 - (v / max) * 140}`,
-  );
-  const targetY = 170 - (target / max) * 140;
+  const scaleMin = Math.min(0, ...cumulative) * 1.15;
+  const scaleMax = Math.max(target, 1, ...cumulative) * 1.15;
+  const span = scaleMax - scaleMin;
+  const y = (value: number) => 170 - ((value - scaleMin) / span) * 140;
+  const zeroY = y(0);
+  const points = cumulative.map((v, i) => `${40 + (i / days) * 620},${y(v)}`);
+  const targetY = y(target);
   return (
     <div className="chart">
       <svg
@@ -195,7 +210,7 @@ function ProgressChart({
               fill="#757c8c"
               fontSize="11"
             >
-              {number((max * (3 - i)) / 3 / 1000, 1)}k
+              {number((scaleMax - (span * i) / 3) / 1000, 1)}k
             </text>
           </g>
         ))}
@@ -219,7 +234,7 @@ function ProgressChart({
         {points.length > 1 && (
           <>
             <path
-              d={`M ${points.join(" L ")} L ${40 + (lastDay / days) * 620},170 L 40,170 Z`}
+              d={`M ${points.join(" L ")} L ${40 + (lastDay / days) * 620},${zeroY} L 40,${zeroY} Z`}
               fill="url(#chart-fill)"
             />
             <polyline
@@ -232,7 +247,7 @@ function ProgressChart({
             />
             <circle
               cx={40 + (lastDay / days) * 620}
-              cy={170 - ((cumulative.at(-1) ?? 0) / max) * 140}
+              cy={y(cumulative.at(-1) ?? 0)}
               r="4.5"
               fill="#7ab0ff"
               stroke="#172a47"
@@ -308,7 +323,7 @@ function TeamChart({ partners }: { partners: Partner[] }) {
                   <i
                     className="team-chart-bar achieved"
                     style={{
-                      width: `${Math.min(100, (partner.total / scale) * 100)}%`,
+                      width: `${Math.max(0, Math.min(100, (partner.total / scale) * 100))}%`,
                     }}
                   />
                 </div>
@@ -381,7 +396,7 @@ function DailyChart({
             <div className="daily-chart-track" aria-hidden="true">
               <i
                 style={{
-                  width: `${Math.min(100, (partner.total / scale) * 100)}%`,
+                  width: `${Math.max(0, Math.min(100, (partner.total / scale) * 100))}%`,
                 }}
               />
             </div>
@@ -390,7 +405,7 @@ function DailyChart({
         ))}
       </div>
       <p className="team-chart-footnote">
-        Aktualisiert sich mit jedem erfassten Abschluss.
+        Netto-BWS nach Abschlüssen und Stornos.
       </p>
     </article>
   );
@@ -408,14 +423,17 @@ export default function Dashboard({
   const data = demo ? demoState : initial;
   const [view, setView] = useState<View>("overview");
   const [modal, setModal] = useState<
-    "entry" | "goal" | "help" | "account" | null
+    "entry" | "cancellation" | "goal" | "help" | "account" | null
   >(null);
   const [deleting, setDeleting] = useState<Entry | null>(null);
+  const [deletingCancellation, setDeletingCancellation] =
+    useState<Cancellation | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [filter, setFilter] = useState("Alle");
   const entryId = useRef("");
+  const cancellationId = useRef("");
   useEffect(() => {
     if (demo) return;
     const refresh = () => {
@@ -456,7 +474,13 @@ export default function Dashboard({
     const timer = setTimeout(() => setMessage(""), 5000);
     return () => clearTimeout(timer);
   }, [message]);
-  const metrics = calculateMetrics(data.entries, data.target, data.month);
+  const metrics = calculateMetrics(
+    data.entries,
+    data.target,
+    data.month,
+    berlinDate(),
+    data.cancellations,
+  );
   const partners = rankPartners(
     data.partners.map((p) =>
       p.user_id === data.userId
@@ -481,6 +505,7 @@ export default function Dashboard({
   const shownEntries = data.entries.filter(
     (e) => filter === "Alle" || e.category === filter,
   );
+  const grossBws = data.entries.reduce((sum, e) => sum + e.amount, 0);
   async function shareDaily() {
     const summary = dailyShareText(dailyPartners, data.daily.date, demo);
     if (typeof navigator.share === "function") {
@@ -507,10 +532,16 @@ export default function Dashboard({
     setError("");
     setModal("entry");
   };
+  const openCancellation = () => {
+    cancellationId.current = crypto.randomUUID();
+    setError("");
+    setModal("cancellation");
+  };
   const close = () => {
     if (!pending) {
       setModal(null);
       setDeleting(null);
+      setDeletingCancellation(null);
       setError("");
     }
   };
@@ -578,6 +609,61 @@ export default function Dashboard({
         setMessage(
           "BWS gespeichert. Dein Fortschritt und die Teamwertung sind aktualisiert.",
         );
+        if (!demo) router.refresh();
+      } catch {
+        setError("Keine Verbindung. Bitte versuche es erneut.");
+      }
+    });
+  }
+  function handleCancellation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const input = {
+      id: cancellationId.current,
+      amount: Number(String(form.get("amount")).replace(",", ".")),
+      occurred_on: form.get("occurred_on"),
+      reason: form.get("reason"),
+    };
+    const parsed = cancellationSchema.safeParse(input);
+    if (!parsed.success || String(input.occurred_on) > berlinDate()) {
+      setError("Bitte prüfe Storno-Betrag und Datum.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        if (!demo) {
+          const result = await addCancellation(parsed.data);
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
+        }
+        if (demo)
+          setData((old) => ({
+            ...old,
+            cancellations: parsed.data.occurred_on.startsWith(old.month)
+              ? [
+                  { ...parsed.data, user_id: old.userId },
+                  ...old.cancellations,
+                ].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on))
+              : old.cancellations,
+            daily: {
+              ...old.daily,
+              partners: old.daily.partners.map((p) =>
+                p.user_id === old.userId &&
+                parsed.data.occurred_on === old.daily.date
+                  ? {
+                      ...p,
+                      total:
+                        Math.round((p.total - parsed.data.amount) * 100) / 100,
+                    }
+                  : p,
+              ),
+            },
+          }));
+        setModal(null);
+        setMessage("Storno gespeichert. Die Netto-BWS wurden aktualisiert.");
         if (!demo) router.refresh();
       } catch {
         setError("Keine Verbindung. Bitte versuche es erneut.");
@@ -656,6 +742,46 @@ export default function Dashboard({
       }
     });
   }
+  function handleDeleteCancellation() {
+    if (!deletingCancellation) return;
+    const cancellation = deletingCancellation;
+    startTransition(async () => {
+      try {
+        if (!demo) {
+          const result = await removeCancellation(cancellation.id);
+          if (result.error) {
+            setError(result.error);
+            return;
+          }
+        }
+        if (demo)
+          setData((old) => ({
+            ...old,
+            cancellations: old.cancellations.filter(
+              (c) => c.id !== cancellation.id,
+            ),
+            daily: {
+              ...old.daily,
+              partners: old.daily.partners.map((p) =>
+                p.user_id === old.userId &&
+                cancellation.occurred_on === old.daily.date
+                  ? {
+                      ...p,
+                      total:
+                        Math.round((p.total + cancellation.amount) * 100) / 100,
+                    }
+                  : p,
+              ),
+            },
+          }));
+        setDeletingCancellation(null);
+        setMessage("Storno gelöscht. Die Netto-BWS wurden aktualisiert.");
+        if (!demo) router.refresh();
+      } catch {
+        setError("Keine Verbindung. Bitte versuche es erneut.");
+      }
+    });
+  }
   const nav = [
     { id: "overview" as const, label: "Übersicht", icon: LayoutDashboard },
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
@@ -696,7 +822,7 @@ export default function Dashboard({
             <div className="track">
               <i
                 style={{
-                  width: `${Math.min(100, (p.total / p.target) * 100)}%`,
+                  width: `${Math.max(0, Math.min(100, (p.total / p.target) * 100))}%`,
                 }}
               />
             </div>
@@ -852,6 +978,13 @@ export default function Dashboard({
                   </button>
                 </div>
               )}
+              <button
+                className="secondary storno-button"
+                onClick={openCancellation}
+              >
+                <ArrowDownLeft size={17} />
+                Storno eintragen
+              </button>
               <button className="primary add-button" onClick={openEntry}>
                 <Plus size={18} />
                 BWS hinzufügen
@@ -878,7 +1011,7 @@ export default function Dashboard({
                       <ArrowUpRight size={14} />
                       {metrics.count} Abschlüsse
                     </span>
-                    <span>diesen Monat</span>
+                    <span>− {number(metrics.storno, 2)} BWS Storno</span>
                   </div>
                 </article>
                 <article className="metric glass">
@@ -1040,6 +1173,7 @@ export default function Dashboard({
                   </div>
                   <ProgressChart
                     entries={data.entries}
+                    cancellations={data.cancellations}
                     target={data.target}
                     month={data.month}
                   />
@@ -1103,7 +1237,7 @@ export default function Dashboard({
                         <i
                           key={c}
                           style={{
-                            width: `${(value / metrics.total) * 100}%`,
+                            width: `${grossBws > 0 ? (value / grossBws) * 100 : 0}%`,
                             background: categoryColors[i],
                           }}
                           title={`${c}: ${number(value)} BWS`}
@@ -1133,7 +1267,7 @@ export default function Dashboard({
                           </strong>
                         </div>
                       ))}
-                    {metrics.total === 0 && (
+                    {grossBws === 0 && (
                       <p className="empty-copy">
                         Dein Produktmix erscheint nach deinem ersten Eintrag.
                       </p>
@@ -1145,84 +1279,147 @@ export default function Dashboard({
           )}
 
           {view === "entries" && (
-            <article className="glass entries-card">
-              <div className="section-heading">
-                <div>
-                  <h2>
-                    Deine Abschlüsse{" "}
-                    <span className="count-pill">{shownEntries.length}</span>
-                  </h2>
-                  <p>Nur du kannst deine einzelnen Einträge sehen.</p>
+            <>
+              <article className="glass entries-card">
+                <div className="section-heading">
+                  <div>
+                    <h2>
+                      Deine Abschlüsse{" "}
+                      <span className="count-pill">{shownEntries.length}</span>
+                    </h2>
+                    <p>Nur du kannst deine einzelnen Einträge sehen.</p>
+                  </div>
+                  <select
+                    aria-label="Nach Versicherung filtern"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                  >
+                    <option>Alle</option>
+                    {visibleCategories.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
-                <select
-                  aria-label="Nach Versicherung filtern"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                >
-                  <option>Alle</option>
-                  {visibleCategories.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="entry-list">
-                {shownEntries.map((entry) => {
-                  const Icon = categoryIcons[entry.category];
-                  return (
-                    <div className="entry-row" key={entry.id}>
-                      <span className="entry-icon">
-                        <Icon size={21} />
+                <div className="entry-list">
+                  {shownEntries.map((entry) => {
+                    const Icon = categoryIcons[entry.category];
+                    return (
+                      <div className="entry-row" key={entry.id}>
+                        <span className="entry-icon">
+                          <Icon size={21} />
+                        </span>
+                        <div className="entry-info">
+                          <strong>{entry.category}</strong>
+                          <span>
+                            {entry.transaction_type ??
+                              "Altbestand · Vertragsart nicht erfasst"}{" "}
+                            ·{" "}
+                            {new Intl.DateTimeFormat("de-DE", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }).format(
+                              new Date(entry.occurred_on + "T12:00:00"),
+                            )}
+                            {entry.customer_name && (
+                              <> · Kunde: {entry.customer_name}</>
+                            )}
+                            {entry.note && <> · Notiz: {entry.note}</>}
+                          </span>
+                        </div>
+                        <strong className="entry-amount">
+                          +{number(entry.amount, 2)} <small>BWS</small>
+                        </strong>
+                        <button
+                          className="icon-button delete-button"
+                          aria-label={`${entry.category} vom ${entry.occurred_on} löschen`}
+                          onClick={() => {
+                            setError("");
+                            setDeleting(entry);
+                          }}
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {shownEntries.length === 0 && (
+                    <div className="empty-state">
+                      <Wallet size={34} />
+                      <h3>Noch keine Einträge</h3>
+                      <p>
+                        {filter === "Alle"
+                          ? "Erfasse deinen ersten Abschluss für diesen Monat."
+                          : "Für diese Versicherung gibt es noch keine Einträge."}
+                      </p>
+                      <button className="primary" onClick={openEntry}>
+                        <Plus size={17} />
+                        BWS hinzufügen
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+              <article className="glass entries-card storno-card">
+                <div className="section-heading">
+                  <div>
+                    <h2>
+                      Deine Stornos{" "}
+                      <span className="count-pill">
+                        {data.cancellations.length}
+                      </span>
+                    </h2>
+                    <p>
+                      Im Buchungsmonat abgezogen · nur für dich im Detail
+                      sichtbar.
+                    </p>
+                  </div>
+                  <button className="secondary" onClick={openCancellation}>
+                    <ArrowDownLeft size={16} /> Storno eintragen
+                  </button>
+                </div>
+                <div className="entry-list">
+                  {data.cancellations.map((cancellation) => (
+                    <div className="entry-row" key={cancellation.id}>
+                      <span className="entry-icon storno-icon">
+                        <ArrowDownLeft size={21} />
                       </span>
                       <div className="entry-info">
-                        <strong>{entry.category}</strong>
+                        <strong>Storno</strong>
                         <span>
-                          {entry.transaction_type ??
-                            "Altbestand · Vertragsart nicht erfasst"}{" "}
-                          ·{" "}
                           {new Intl.DateTimeFormat("de-DE", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
-                          }).format(new Date(entry.occurred_on + "T12:00:00"))}
-                          {entry.customer_name && (
-                            <> · Kunde: {entry.customer_name}</>
+                          }).format(
+                            new Date(cancellation.occurred_on + "T12:00:00"),
                           )}
-                          {entry.note && <> · Notiz: {entry.note}</>}
+                          {cancellation.reason && ` · ${cancellation.reason}`}
                         </span>
                       </div>
-                      <strong className="entry-amount">
-                        +{number(entry.amount, 2)} <small>BWS</small>
+                      <strong className="entry-amount storno-amount">
+                        −{number(cancellation.amount, 2)} <small>BWS</small>
                       </strong>
                       <button
                         className="icon-button delete-button"
-                        aria-label={`${entry.category} vom ${entry.occurred_on} löschen`}
+                        aria-label={`Storno vom ${cancellation.occurred_on} löschen`}
                         onClick={() => {
                           setError("");
-                          setDeleting(entry);
+                          setDeletingCancellation(cancellation);
                         }}
                       >
                         <Trash2 size={17} />
                       </button>
                     </div>
-                  );
-                })}
-                {shownEntries.length === 0 && (
-                  <div className="empty-state">
-                    <Wallet size={34} />
-                    <h3>Noch keine Einträge</h3>
-                    <p>
-                      {filter === "Alle"
-                        ? "Erfasse deinen ersten Abschluss für diesen Monat."
-                        : "Für diese Versicherung gibt es noch keine Einträge."}
+                  ))}
+                  {data.cancellations.length === 0 && (
+                    <p className="empty-copy storno-empty">
+                      Für {monthLabel(data.month)} sind keine Stornos erfasst.
                     </p>
-                    <button className="primary" onClick={openEntry}>
-                      <Plus size={17} />
-                      BWS hinzufügen
-                    </button>
-                  </div>
-                )}
-              </div>
-            </article>
+                  )}
+                </div>
+              </article>
+            </>
           )}
 
           {view === "team" && (
@@ -1257,11 +1454,17 @@ export default function Dashboard({
                     </button>
                   </div>
                 </div>
-                {winners.length === 0 && (
+                {dailyPartners.every((partner) => partner.total === 0) && (
                   <p className="daily-empty">
                     Noch keine BWS heute. Jeder startet bei 0 BWS.
                   </p>
                 )}
+                {dailyPartners.some((partner) => partner.total < 0) &&
+                  winners.length === 0 && (
+                    <p className="daily-empty">
+                      Stornos übersteigen heute die erfassten Abschlüsse.
+                    </p>
+                  )}
                 <div
                   className="daily-earnings-table"
                   role="table"
@@ -1412,12 +1615,12 @@ export default function Dashboard({
                     <>
                       <div className="daily-names">Heute ist alles offen.</div>
                       <p className="performance-note">
-                        Noch keine Umsätze heute.
+                        Noch kein positiver Tagesstand.
                       </p>
                     </>
                   )}
                   <p className="performance-note">
-                    Nach Abschlussdatum · täglich neu ab 00:00 Uhr.
+                    Abschlüsse und Stornos nach Buchungsdatum · täglich neu ab 00:00 Uhr.
                   </p>
                 </article>
               </section>
@@ -1602,6 +1805,63 @@ export default function Dashboard({
           </form>
         </Modal>
       )}
+      {modal === "cancellation" && (
+        <Modal title="Storno eintragen" onClose={close}>
+          <p className="modal-description">
+            Gib den positiven BWS-Betrag ein. Er wird am Buchungstag als Storno
+            abgezogen, auch wenn der Abschluss aus einem früheren Monat stammt.
+          </p>
+          <form onSubmit={handleCancellation} className="form">
+            <div className="form-grid">
+              <label>
+                Storno in BWS
+                <input
+                  autoFocus
+                  name="amount"
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  placeholder="z. B. 1000"
+                  pattern="[0-9]+([.,][0-9]{1,2})?"
+                  title="Positiven Betrag ohne Tausenderpunkte eingeben"
+                />
+              </label>
+              <label>
+                Buchungsdatum
+                <input
+                  name="occurred_on"
+                  type="date"
+                  required
+                  min="2000-01-01"
+                  max={berlinDate()}
+                  defaultValue={berlinDate()}
+                />
+              </label>
+            </div>
+            <label>
+              Grund <span className="optional">optional</span>
+              <input
+                name="reason"
+                maxLength={120}
+                autoComplete="off"
+                placeholder="z. B. Widerruf oder Nichtzahlung"
+              />
+            </label>
+            <p className="form-hint">
+              <ShieldCheck size={14} />
+              Der Grund ist nur in deinen eigenen Storno-Einträgen sichtbar.
+            </p>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <button className="primary full-width" disabled={pending}>
+              {pending ? "Wird gespeichert …" : "Storno speichern"}
+            </button>
+          </form>
+        </Modal>
+      )}
       {modal === "goal" && (
         <Modal title="Dein Monatsziel" onClose={close}>
           <p className="modal-description">
@@ -1735,6 +1995,34 @@ export default function Dashboard({
               onClick={handleDelete}
             >
               {pending ? "Wird gelöscht …" : "Eintrag löschen"}
+            </button>
+          </div>
+        </Modal>
+      )}
+      {deletingCancellation && (
+        <Modal title="Storno löschen?" onClose={close}>
+          <p className="modal-description">
+            −{number(deletingCancellation.amount, 2)} BWS vom{" "}
+            {new Intl.DateTimeFormat("de-DE").format(
+              new Date(deletingCancellation.occurred_on + "T12:00:00"),
+            )}
+            . Der Abzug wird entfernt und die Netto-BWS neu berechnet.
+          </p>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="modal-actions">
+            <button className="secondary" disabled={pending} onClick={close}>
+              Abbrechen
+            </button>
+            <button
+              className="danger"
+              disabled={pending}
+              onClick={handleDeleteCancellation}
+            >
+              {pending ? "Wird gelöscht …" : "Storno löschen"}
             </button>
           </div>
         </Modal>

@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { supabaseServer, isConfigured } from "@/lib/supabase/server";
-import { entrySchema, goalSchema } from "@/lib/validation";
+import { cancellationSchema, entrySchema, goalSchema } from "@/lib/validation";
 import { berlinDate } from "@/lib/metrics";
 async function member() {
   if (!isConfigured()) throw new Error("Supabase ist noch nicht eingerichtet.");
@@ -48,6 +48,27 @@ export async function addEntry(input: unknown) {
     };
   }
 }
+export async function addCancellation(input: unknown) {
+  try {
+    const parsed = cancellationSchema.safeParse(input);
+    if (!parsed.success)
+      return { error: "Bitte prüfe den Storno-Betrag und das Buchungsdatum." };
+    if (parsed.data.occurred_on > berlinDate())
+      return { error: "Das Datum darf nicht in der Zukunft liegen." };
+    const { db, user } = await member();
+    const { error } = await db
+      .from("cancellation_entries")
+      .insert({ ...parsed.data, user_id: user.id });
+    if (error && error.code !== "23505")
+      return { error: "Das Storno konnte nicht gespeichert werden." };
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Speichern fehlgeschlagen.",
+    };
+  }
+}
 export async function saveGoal(input: unknown) {
   try {
     const parsed = goalSchema.safeParse(input);
@@ -81,6 +102,23 @@ export async function removeEntry(id: string) {
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return { error: "Löschen fehlgeschlagen." };
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Löschen fehlgeschlagen.",
+    };
+  }
+}
+export async function removeCancellation(id: string) {
+  try {
+    const { db, user } = await member();
+    const { error } = await db
+      .from("cancellation_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+    if (error) return { error: "Storno konnte nicht gelöscht werden." };
     revalidatePath("/");
     return { success: true };
   } catch (e) {
