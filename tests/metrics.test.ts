@@ -21,6 +21,7 @@ const entry = (amount: number, occurred_on = "2026-09-12"): Entry => ({
   amount,
   occurred_on,
   note: "",
+  customer_name: "",
 });
 test("sales update total, remaining target, progress and forecast", () => {
   const before = calculateMetrics([], 10000, "2026-09", "2026-09-15");

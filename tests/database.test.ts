@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 const A = "00000000-0000-4000-8000-000000000001";
 const B = "00000000-0000-4000-8000-000000000002";
 const C = "00000000-0000-4000-8000-000000000003";
+const D = "00000000-0000-4000-8000-000000000004";
 test("migration enforces private logs and live team aggregates", async () => {
   const db = new PGlite();
   try {
@@ -23,8 +24,8 @@ test("migration enforces private logs and live team aggregates", async () => {
       ),
     );
     await db.query(
-      `insert into auth.users(id,email,raw_user_meta_data) values ($1,'a@example.test','{"full_name":"Partner A"}'), ($2,'b@example.test','{"full_name":"Partner B"}'), ($3,'c@example.test','{"full_name":"Unapproved","active":true}')`,
-      [A, B, C],
+      `insert into auth.users(id,email,raw_user_meta_data) values ($1,'a@example.test','{"full_name":"Partner A"}'), ($2,'b@example.test','{"full_name":"Partner B"}'), ($3,'c@example.test','{"full_name":"Unapproved","active":true}'), ($4,'d@example.test','{"full_name":"Moritz Kissner"}')`,
+      [A, B, C, D],
     );
     await db.query(
       `update public.profiles set active = true where id in ($1,$2)`,
@@ -85,6 +86,86 @@ test("migration enforces private logs and live team aggregates", async () => {
         "utf8",
       ),
     );
+    await db.query("update public.profiles set active = true where id = $1", [
+      D,
+    ]);
+    await db.query(
+      "insert into public.sales_entries(user_id,amount,category,occurred_on) values ($1,99999,'Hausrat','2020-09-14')",
+      [D],
+    );
+    await db.query(
+      "insert into public.sales_entries(user_id,amount,category,occurred_on) values ($1,99999,'Hausrat',(now() at time zone 'Europe/Berlin')::date)",
+      [D],
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610070001_private_customer_names_team_visibility.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    const hiddenProfile = await db.query<{
+      active: boolean;
+      visible_in_team: boolean;
+    }>("select active, visible_in_team from public.profiles where id = $1", [
+      D,
+    ]);
+    assert.deepEqual(hiddenProfile.rows[0], {
+      active: true,
+      visible_in_team: false,
+    });
+    const hiddenMonthly = await asUser(D, () =>
+      db.query<{ user_id: string }>(
+        "select * from public.team_leaderboard('2020-09-01')",
+      ),
+    );
+    assert.equal(
+      hiddenMonthly.rows.some((row) => row.user_id === D),
+      false,
+    );
+    const hiddenDaily = await asUser(D, () =>
+      db.query<{ user_id: string }>(
+        "select * from public.team_daily_leaderboard()",
+      ),
+    );
+    assert.equal(
+      hiddenDaily.rows.some((row) => row.user_id === D),
+      false,
+    );
+    await asUser(A, () =>
+      db.query(
+        "insert into public.sales_entries(user_id,amount,category,transaction_type,occurred_on,customer_name) values ($1,1,'Hausrat','Neuvertrag','2020-09-16','Kunde Test')",
+        [A],
+      ),
+    );
+    const privateName = await asUser(A, () =>
+      db.query<{ customer_name: string }>(
+        "select customer_name from public.sales_entries where customer_name <> ''",
+      ),
+    );
+    assert.equal(privateName.rows[0].customer_name, "Kunde Test");
+    const otherNames = await asUser(B, () =>
+      db.query<{ customer_name: string }>(
+        "select customer_name from public.sales_entries where customer_name <> ''",
+      ),
+    );
+    assert.equal(otherNames.rows.length, 0);
+    await asUser(A, () =>
+      db.query(
+        "delete from public.sales_entries where customer_name = 'Kunde Test'",
+      ),
+    );
+    await assert.rejects(
+      asUser(D, () =>
+        db.query(
+          "update public.profiles set visible_in_team = true where id = $1",
+          [D],
+        ),
+      ),
+      /permission denied/,
+    );
     for (const category of [
       "Recht und Heim",
       "Reis Protect 365",
@@ -99,7 +180,9 @@ test("migration enforces private logs and live team aggregates", async () => {
       );
     }
     await asUser(A, () =>
-      db.query("delete from public.sales_entries where occurred_on = '2020-10-01'"),
+      db.query(
+        "delete from public.sales_entries where occurred_on = '2020-10-01'",
+      ),
     );
     const legacy = await asUser(A, () =>
       db.query<{ category: string; transaction_type: string | null }>(
@@ -133,6 +216,7 @@ test("migration enforces private logs and live team aggregates", async () => {
     assert.equal(Number(team.rows[0].total), 1250.25);
     assert.equal(Number(team.rows[0].entry_count), 1);
     assert.equal("note" in team.rows[0], false);
+    assert.equal("customer_name" in team.rows[0], false);
     await asUser(A, () =>
       db.query(
         `insert into public.monthly_goals(user_id,month,target) values ($1,'2020-09-01',2500)`,
