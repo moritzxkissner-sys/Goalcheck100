@@ -1620,7 +1620,7 @@ export default function Dashboard({
                     </>
                   )}
                   <p className="performance-note">
-                    Nach Abschlussdatum · täglich neu ab 00:00 Uhr.
+                    Abschlüsse und Stornos nach Buchungsdatum · täglich neu ab 00:00 Uhr.
                   </p>
                 </article>
               </section>
