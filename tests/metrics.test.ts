@@ -11,8 +11,9 @@ import {
   teamShareText,
   dailyShareText,
   type Entry,
+  type Cancellation,
 } from "../lib/metrics";
-import { entrySchema, goalSchema } from "../lib/validation";
+import { cancellationSchema, entrySchema, goalSchema } from "../lib/validation";
 const entry = (amount: number, occurred_on = "2026-09-12"): Entry => ({
   id: "280e6fa2-8686-4e6c-9e73-a75022f2bf75",
   user_id: "test",
@@ -22,6 +23,49 @@ const entry = (amount: number, occurred_on = "2026-09-12"): Entry => ({
   occurred_on,
   note: "",
   customer_name: "",
+});
+const cancellation = (
+  amount: number,
+  occurred_on = "2026-10-07",
+): Cancellation => ({
+  id: "c9f9c785-018f-460b-825d-03976d81162e",
+  user_id: "test",
+  amount,
+  occurred_on,
+  reason: "Widerruf",
+});
+test("storno reduces only its booking month, including a negative net total", () => {
+  const sales = [entry(2500, "2026-09-12")];
+  const storno = [cancellation(1000)];
+  const september = calculateMetrics(
+    sales,
+    10000,
+    "2026-09",
+    "2026-10-07",
+    storno,
+  );
+  const october = calculateMetrics(
+    sales,
+    10000,
+    "2026-10",
+    "2026-10-07",
+    storno,
+  );
+  assert.equal(september.total, 2500);
+  assert.equal(october.gross, 0);
+  assert.equal(october.storno, 1000);
+  assert.equal(october.total, -1000);
+  assert.equal(october.remaining, 11000);
+  assert.equal(october.progress, 0);
+  assert.equal(october.count, 0);
+  assert.equal(
+    cancellationSchema.safeParse({
+      id: storno[0].id,
+      amount: -1000,
+      occurred_on: "2026-10-07",
+    }).success,
+    false,
+  );
 });
 test("sales update total, remaining target, progress and forecast", () => {
   const before = calculateMetrics([], 10000, "2026-09", "2026-09-15");

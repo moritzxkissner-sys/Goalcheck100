@@ -106,6 +106,15 @@ test("migration enforces private logs and live team aggregates", async () => {
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610070002_cancellation_entries.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     const hiddenProfile = await db.query<{
       active: boolean;
       visible_in_team: boolean;
@@ -382,6 +391,129 @@ test("migration enforces private logs and live team aggregates", async () => {
     );
     // Yesterday's larger sale is still stored, but the daily ranking is empty.
     assert.ok((await daily()).rows.every((p) => Number(p.total) === 0));
+    // A later Storno belongs to its booking month and never mutates an old sale.
+    const oldSalesBefore = await asUser(A, () =>
+      db.query<{ id: string }>(
+        "select id from public.sales_entries order by id",
+      ),
+    );
+    const cancellation = await asUser(A, () =>
+      db.query<{ id: string }>(
+        "insert into public.cancellation_entries(user_id,amount,occurred_on,reason) values ($1,600,'2020-09-30','Testwiderruf') returning id",
+        [A],
+      ),
+    );
+    const cancellationId = cancellation.rows[0].id;
+    const septemberNet = await asUser(B, () =>
+      db.query<{ user_id: string; total: string; entry_count: number }>(
+        "select * from public.team_leaderboard('2020-09-01')",
+      ),
+    );
+    assert.equal(
+      Number(septemberNet.rows.find((r) => r.user_id === A)?.total),
+      -600,
+    );
+    assert.equal(
+      septemberNet.rows.find((r) => r.user_id === A)?.entry_count,
+      0,
+    );
+    assert.deepEqual(
+      (
+        await asUser(A, () =>
+          db.query<{ id: string }>(
+            "select id from public.sales_entries order by id",
+          ),
+        )
+      ).rows,
+      oldSalesBefore.rows,
+    );
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query("select * from public.cancellation_entries"),
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(A, () =>
+          db.query<{ reason: string }>(
+            "select reason from public.cancellation_entries",
+          ),
+        )
+      ).rows[0].reason,
+      "Testwiderruf",
+    );
+    await assert.rejects(
+      asUser(B, () =>
+        db.query(
+          "insert into public.cancellation_entries(user_id,amount,occurred_on) values ($1,10,'2020-09-30')",
+          [A],
+        ),
+      ),
+      /row-level security/,
+    );
+    for (const [amount, bookingDay] of [
+      [0, "2020-09-30"],
+      [1, "2099-09-30"],
+    ] as const) {
+      await assert.rejects(
+        asUser(A, () =>
+          db.query(
+            "insert into public.cancellation_entries(user_id,amount,occurred_on) values ($1,$2,$3)",
+            [A, amount, bookingDay],
+          ),
+        ),
+        /check constraint/,
+      );
+    }
+    const deletedByOther = await asUser(B, () =>
+      db.query(
+        "delete from public.cancellation_entries where id = $1 returning id",
+        [cancellationId],
+      ),
+    );
+    assert.equal(deletedByOther.rows.length, 0);
+    await asUser(A, () =>
+      db.query(
+        `insert into public.cancellation_entries(user_id,amount,occurred_on) values ($1,75,${todaySql})`,
+        [A],
+      ),
+    );
+    const netDaily = (await daily()).rows;
+    assert.equal(netDaily[0].user_id, B);
+    assert.equal(Number(netDaily.find((r) => r.user_id === A)?.total), -75);
+    await asUser(B, () =>
+      db.query(
+        `insert into public.cancellation_entries(user_id,amount,occurred_on) values ($1,100,${todaySql} - 1)`,
+        [B],
+      ),
+    );
+    assert.equal(
+      Number((await daily()).rows.find((r) => r.user_id === B)?.total),
+      0,
+    );
+    await db.query(
+      `insert into public.cancellation_entries(user_id,amount,occurred_on) values ($1,999999,${todaySql})`,
+      [D],
+    );
+    assert.equal((await daily()).rows.length, 2);
+    await asUser(A, () =>
+      db.query(
+        `delete from public.cancellation_entries where occurred_on = ${todaySql}`,
+      ),
+    );
+    assert.ok((await daily()).rows.every((p) => Number(p.total) === 0));
+    await assert.rejects(
+      asUser(C, () =>
+        db.query(
+          `insert into public.cancellation_entries(user_id,amount,occurred_on) values ($1,10,${todaySql})`,
+          [C],
+        ),
+      ),
+      /row-level security/,
+    );
     await assert.rejects(
       asUser(C, () =>
         db.query("select * from public.team_daily_leaderboard()"),
