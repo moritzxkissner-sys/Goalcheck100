@@ -124,6 +124,10 @@ test("migration enforces private logs and live team aggregates", async () => {
         "utf8",
       ),
     );
+    const servicePrivilege = await db.query<{ allowed: boolean }>(
+      "select has_table_privilege('service_role','public.fixed_costs','SELECT') as allowed",
+    );
+    assert.equal(servicePrivilege.rows[0].allowed, false);
     const ownExpense = await asUser(A, () =>
       db.query<{ id: string }>(
         "insert into public.fixed_costs(user_id,name,amount,cadence) values ($1,'Miete',870,'monthly') returning id",
