@@ -42,6 +42,7 @@ export function demoData(month = currentMonth()): DashboardData {
     target: 10000,
     entries,
     cancellations: [],
+    fixedCosts: [],
     daily: {
       date: berlinDate(),
       partners: [

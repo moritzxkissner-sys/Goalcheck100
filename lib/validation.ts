@@ -32,3 +32,8 @@ export const cancellationSchema = z.object({
   reason: z.string().trim().max(120).default(""),
 });
 export const goalSchema = z.object({ month: monthSchema, target: amount });
+export const fixedCostSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  amount,
+  cadence: z.enum(["monthly", "quarterly", "yearly"]),
+});
