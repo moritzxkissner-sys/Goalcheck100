@@ -13,6 +13,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   CalendarDays,
+  Calculator,
   Car,
   Check,
   ChevronLeft,
@@ -68,6 +69,7 @@ import {
 } from "@/lib/metrics";
 import { cancellationSchema, entrySchema, goalSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
+import FixedCostsPanel from "@/components/fixed-costs";
 
 const categoryIcons = {
   Rechtsschutz: ShieldCheck,
@@ -93,7 +95,7 @@ const categoryColors = [
   "#7286ee",
   "#969ba8",
 ];
-type View = "overview" | "entries" | "team";
+type View = "overview" | "entries" | "fixedCosts" | "team";
 
 function Modal({
   title,
@@ -550,7 +552,7 @@ export default function Dashboard({
     d.setUTCMonth(d.getUTCMonth() + direction);
     const month = d.toISOString().slice(0, 7);
     if (demo) {
-      setData(demoData(month));
+      setData((old) => ({ ...demoData(month), fixedCosts: old.fixedCosts }));
       setMessage("Demo-Monat mit Beispieldaten geöffnet.");
     } else router.push(`/?month=${month}`, { scroll: false });
   };
@@ -785,8 +787,20 @@ export default function Dashboard({
   const nav = [
     { id: "overview" as const, label: "Übersicht", icon: LayoutDashboard },
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
+    { id: "fixedCosts" as const, label: "Meine Fixkosten", icon: Calculator },
     { id: "team" as const, label: "Team", icon: Users },
   ];
+  const selectView = (next: View) => {
+    setView(next);
+    if (next === "fixedCosts" && data.month !== currentMonth()) {
+      if (demo)
+        setData((old) => ({
+          ...demoData(currentMonth()),
+          fixedCosts: old.fixedCosts,
+        }));
+      else router.push("/", { scroll: false });
+    }
+  };
   const teamTable = (compact = false) => (
     <div className="team-table" role="table" aria-label="Team-Rangliste">
       <div className="team-row table-head" role="row">
@@ -850,7 +864,7 @@ export default function Dashboard({
             <button
               key={item.id}
               className={`nav-item ${view === item.id ? "active" : ""}`}
-              onClick={() => setView(item.id)}
+              onClick={() => selectView(item.id)}
               aria-current={view === item.id ? "page" : undefined}
             >
               <item.icon size={20} />
@@ -934,7 +948,9 @@ export default function Dashboard({
               <div className="eyebrow">
                 {view === "team"
                   ? "HEUTE IM TEAM"
-                  : "DEINE PERFORMANCE IM BLICK"}
+                  : view === "fixedCosts"
+                    ? "DEIN PRIVATER KOSTENPLAN"
+                    : "DEINE PERFORMANCE IM BLICK"}
               </div>
               <h1>
                 {view === "overview" ? (
@@ -944,6 +960,8 @@ export default function Dashboard({
                   </>
                 ) : view === "entries" ? (
                   "Meine Einträge"
+                ) : view === "fixedCosts" ? (
+                  "Meine Fixkosten"
                 ) : (
                   "Unser Team"
                 )}
@@ -953,11 +971,13 @@ export default function Dashboard({
                   ? "Deine Ziele. Dein Fortschritt. Jeder Abschluss zählt."
                   : view === "entries"
                     ? "Alle deine Abschlüsse, an einem Ort."
-                    : "Eure BWS von heute. Jeden Tag eine neue Runde."}
+                    : view === "fixedCosts"
+                      ? "Deine laufenden Kosten. Nur für dich sichtbar."
+                      : "Eure BWS von heute. Jeden Tag eine neue Runde."}
               </p>
             </div>
             <div className="heading-actions">
-              {view !== "team" && (
+              {view !== "team" && view !== "fixedCosts" && (
                 <div className="month-switch">
                   <button
                     aria-label="Vorheriger Monat"
@@ -978,17 +998,19 @@ export default function Dashboard({
                   </button>
                 </div>
               )}
-              <button
-                className="secondary storno-button"
-                onClick={openCancellation}
-              >
-                <ArrowDownLeft size={17} />
-                Storno eintragen
-              </button>
-              <button className="primary add-button" onClick={openEntry}>
-                <Plus size={18} />
-                BWS hinzufügen
-              </button>
+              {view !== "fixedCosts" && (
+                <>
+                  <button
+                    className="secondary storno-button"
+                    onClick={openCancellation}
+                  >
+                    <ArrowDownLeft size={17} /> Storno eintragen
+                  </button>
+                  <button className="primary add-button" onClick={openEntry}>
+                    <Plus size={18} /> BWS hinzufügen
+                  </button>
+                </>
+              )}
             </div>
           </section>
 
@@ -1422,6 +1444,18 @@ export default function Dashboard({
             </>
           )}
 
+          {view === "fixedCosts" && (
+            <FixedCostsPanel
+              rows={data.fixedCosts}
+              monthlyBws={metrics.total}
+              userId={data.userId}
+              demo={demo}
+              onDemoChange={(next) =>
+                setData((old) => ({ ...old, fixedCosts: next }))
+              }
+            />
+          )}
+
           {view === "team" && (
             <>
               <article
@@ -1620,7 +1654,8 @@ export default function Dashboard({
                     </>
                   )}
                   <p className="performance-note">
-                    Abschlüsse und Stornos nach Buchungsdatum · täglich neu ab 00:00 Uhr.
+                    Abschlüsse und Stornos nach Buchungsdatum · täglich neu ab
+                    00:00 Uhr.
                   </p>
                 </article>
               </section>
@@ -1696,7 +1731,7 @@ export default function Dashboard({
           <button
             key={item.id}
             className={view === item.id ? "active" : ""}
-            onClick={() => setView(item.id)}
+            onClick={() => selectView(item.id)}
             aria-current={view === item.id ? "page" : undefined}
           >
             <item.icon size={21} />
