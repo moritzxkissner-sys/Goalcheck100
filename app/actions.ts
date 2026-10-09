@@ -1,7 +1,12 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { supabaseServer, isConfigured } from "@/lib/supabase/server";
-import { cancellationSchema, entrySchema, goalSchema } from "@/lib/validation";
+import {
+  cancellationSchema,
+  entrySchema,
+  fixedCostSchema,
+  goalSchema,
+} from "@/lib/validation";
 import { berlinDate } from "@/lib/metrics";
 async function member() {
   if (!isConfigured()) throw new Error("Supabase ist noch nicht eingerichtet.");
@@ -119,6 +124,59 @@ export async function removeCancellation(id: string) {
       .eq("id", id)
       .eq("user_id", user.id);
     if (error) return { error: "Storno konnte nicht gelöscht werden." };
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Löschen fehlgeschlagen.",
+    };
+  }
+}
+
+export async function saveFixedCost(input: unknown, id?: string) {
+  try {
+    const parsed = fixedCostSchema.safeParse(input);
+    if (!parsed.success)
+      return { error: "Bitte prüfe Name, Betrag und Turnus." };
+    const { db, user } = await member();
+    if (id) {
+      const { data, error } = await db
+        .from("fixed_costs")
+        .update(parsed.data)
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error || !data)
+        return { error: "Der Posten konnte nicht geändert werden." };
+    } else {
+      const { error } = await db
+        .from("fixed_costs")
+        .insert({ ...parsed.data, user_id: user.id });
+      if (error)
+        return { error: "Der Posten konnte nicht gespeichert werden." };
+    }
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Speichern fehlgeschlagen.",
+    };
+  }
+}
+
+export async function removeFixedCost(id: string) {
+  try {
+    const { db, user } = await member();
+    const { data, error } = await db
+      .from("fixed_costs")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data)
+      return { error: "Der Posten konnte nicht gelöscht werden." };
     revalidatePath("/");
     return { success: true };
   } catch (e) {

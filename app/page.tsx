@@ -12,6 +12,7 @@ import {
 } from "@/lib/metrics";
 import { monthSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
+import type { FixedCost } from "@/lib/fixed-costs";
 export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
@@ -75,21 +76,39 @@ export default async function Home({
       if (page.data.length < 500) return { data: rows, error: null };
     }
   }
-  const [entries, cancellations, goal, team, daily] = await Promise.all([
-    loadEntries(),
-    loadCancellations(),
-    db
-      .from("monthly_goals")
-      .select("target")
-      .eq("user_id", user.id)
-      .eq("month", start)
-      .maybeSingle(),
-    db.rpc("team_leaderboard", { selected_month: start }),
-    db.rpc("team_daily_leaderboard"),
-  ]);
+  async function loadFixedCosts() {
+    const rows: FixedCost[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const page = await db
+        .from("fixed_costs")
+        .select("id,user_id,name,amount,cadence,created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(offset, offset + 499);
+      if (page.error) return { data: rows, error: page.error };
+      rows.push(...(page.data as FixedCost[]));
+      if (page.data.length < 500) return { data: rows, error: null };
+    }
+  }
+  const [entries, cancellations, fixedCosts, goal, team, daily] =
+    await Promise.all([
+      loadEntries(),
+      loadCancellations(),
+      loadFixedCosts(),
+      db
+        .from("monthly_goals")
+        .select("target")
+        .eq("user_id", user.id)
+        .eq("month", start)
+        .maybeSingle(),
+      db.rpc("team_leaderboard", { selected_month: start }),
+      db.rpc("team_daily_leaderboard"),
+    ]);
   if (
     entries.error ||
     cancellations.error ||
+    fixedCosts.error ||
     goal.error ||
     team.error ||
     daily.error
@@ -121,6 +140,10 @@ export default async function Home({
           ...c,
           amount: Number(c.amount),
         })) as Cancellation[],
+        fixedCosts: (fixedCosts.data ?? []).map((cost) => ({
+          ...cost,
+          amount: Number(cost.amount),
+        })) as FixedCost[],
         partners: (team.data ?? []).map((p: Partner) => ({
           ...p,
           total: Number(p.total),
