@@ -28,6 +28,8 @@ create policy own_fixed_costs_delete on public.fixed_costs for delete to authent
 
 revoke all on public.fixed_costs from public, anon, authenticated;
 grant select, insert, update, delete on public.fixed_costs to authenticated;
-grant all on public.fixed_costs to service_role;
+-- The app does not use a service-role key. Do not grant that API role access
+-- to personal costs; database owners can still administer their database.
+revoke all on public.fixed_costs from service_role;
 
 commit;
