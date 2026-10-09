@@ -115,6 +115,126 @@ test("migration enforces private logs and live team aggregates", async () => {
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610090001_private_fixed_costs.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    const servicePrivilege = await db.query<{ allowed: boolean }>(
+      "select has_table_privilege('service_role','public.fixed_costs','SELECT') as allowed",
+    );
+    assert.equal(servicePrivilege.rows[0].allowed, false);
+    const ownExpense = await asUser(A, () =>
+      db.query<{ id: string }>(
+        "insert into public.fixed_costs(user_id,name,amount,cadence) values ($1,'Miete',870,'monthly') returning id",
+        [A],
+      ),
+    );
+    const expenseId = ownExpense.rows[0].id;
+    await asUser(B, () =>
+      db.query(
+        "insert into public.fixed_costs(user_id,name,amount,cadence) values ($1,'Software',360,'yearly')",
+        [B],
+      ),
+    );
+    const expensesForB = await asUser(B, () =>
+      db.query<{ user_id: string; name: string }>(
+        "select user_id, name from public.fixed_costs",
+      ),
+    );
+    assert.deepEqual(expensesForB.rows, [{ user_id: B, name: "Software" }]);
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query(
+            "update public.fixed_costs set amount = 1 where id = $1 returning id",
+            [expenseId],
+          ),
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query(
+            "delete from public.fixed_costs where id = $1 returning id",
+            [expenseId],
+          ),
+        )
+      ).rows.length,
+      0,
+    );
+    await assert.rejects(
+      asUser(B, () =>
+        db.query(
+          "insert into public.fixed_costs(user_id,name,amount,cadence) values ($1,'Fremd',1,'monthly')",
+          [A],
+        ),
+      ),
+      /row-level security/,
+    );
+    await assert.rejects(
+      asUser(A, () =>
+        db.query("update public.fixed_costs set user_id = $1 where id = $2", [
+          B,
+          expenseId,
+        ]),
+      ),
+      /row-level security/,
+    );
+    for (const [name, amount, cadence] of [
+      ["   ", 1, "monthly"],
+      ["Leads", 0, "monthly"],
+      ["Leads", 1, "weekly"],
+    ]) {
+      await assert.rejects(
+        asUser(A, () =>
+          db.query(
+            "insert into public.fixed_costs(user_id,name,amount,cadence) values ($1,$2,$3,$4)",
+            [A, name, amount, cadence],
+          ),
+        ),
+        /check constraint/,
+      );
+    }
+    await assert.rejects(
+      asUser(C, () =>
+        db.query(
+          "insert into public.fixed_costs(user_id,name,amount,cadence) values ($1,'Test',1,'monthly')",
+          [C],
+        ),
+      ),
+      /row-level security/,
+    );
+    assert.equal(
+      (await asUser(C, () => db.query("select * from public.fixed_costs"))).rows
+        .length,
+      0,
+    );
+    const edited = await asUser(A, () =>
+      db.query<{ amount: string; cadence: string }>(
+        "update public.fixed_costs set amount = 1200, cadence = 'quarterly' where id = $1 returning amount,cadence",
+        [expenseId],
+      ),
+    );
+    assert.equal(Number(edited.rows[0].amount), 1200);
+    assert.equal(edited.rows[0].cadence, "quarterly");
+    assert.equal(
+      (
+        await asUser(A, () =>
+          db.query(
+            "delete from public.fixed_costs where id = $1 returning id",
+            [expenseId],
+          ),
+        )
+      ).rows.length,
+      1,
+    );
     const hiddenProfile = await db.query<{
       active: boolean;
       visible_in_team: boolean;

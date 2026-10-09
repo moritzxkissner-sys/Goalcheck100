@@ -50,6 +50,7 @@ export type DashboardData = {
   target: number;
   entries: Entry[];
   cancellations: Cancellation[];
+  fixedCosts: import("./fixed-costs").FixedCost[];
   partners: Partner[];
   daily: { date: string; partners: DailyPartner[] };
 };

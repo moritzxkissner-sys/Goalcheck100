@@ -14,6 +14,9 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
     "Meine Einträge",
   );
   await expect(page.locator(".sidebar nav .nav-item").nth(2)).toContainText(
+    "Meine Fixkosten",
+  );
+  await expect(page.locator(".sidebar nav .nav-item").nth(3)).toContainText(
     "Team",
   );
   await expect(page.locator(".mobile-nav button").nth(0)).toContainText(
@@ -22,7 +25,10 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   await expect(page.locator(".mobile-nav button").nth(1)).toContainText(
     "Meine Einträge",
   );
-  await expect(page.locator(".mobile-nav button").nth(2)).toContainText("Team");
+  await expect(page.locator(".mobile-nav button").nth(2)).toContainText(
+    "Meine Fixkosten",
+  );
+  await expect(page.locator(".mobile-nav button").nth(3)).toContainText("Team");
   await expect(
     page.getByRole("heading", { name: "Auf Kurs, Berin." }),
   ).toBeVisible();
@@ -273,6 +279,53 @@ test("storno is booked separately and reduces net BWS without deleting a sale", 
     .click();
   await expect(page.getByTestId("total-bws")).toContainText("8.450");
 });
+test("private fixed costs can be created, compared, edited and deleted", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/demo");
+  await page
+    .getByRole("button", { name: "Meine Fixkosten", exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Meine Fixkosten" }),
+  ).toBeVisible();
+  await expect(page.getByText("Noch keine Fixkosten erfasst.")).toBeVisible();
+  await page.getByRole("button", { name: "Posten hinzufügen" }).click();
+  const form = page.locator(".fixed-costs-form");
+  await form.getByLabel("Name der Ausgabe").fill("Miete");
+  await form.getByLabel("Betrag in €").fill("870");
+  await form.getByLabel("Turnus").selectOption("monthly");
+  await form.getByRole("button", { name: "Posten speichern" }).click();
+  await expect(page.locator(".fixed-costs-total")).toContainText("870,00 €");
+  await expect(page.locator(".fixed-costs-compare")).toContainText("8.450 BWS");
+  await expect(page.locator(".fixed-costs-chart")).toContainText("Miete");
+  await page.getByRole("button", { name: "Posten hinzufügen" }).click();
+  await form.getByLabel("Name der Ausgabe").fill("Software");
+  await form.getByLabel("Betrag in €").fill("120");
+  await form.getByLabel("Turnus").selectOption("yearly");
+  await form.getByRole("button", { name: "Posten speichern" }).click();
+  await expect(page.locator(".fixed-costs-total")).toContainText("880,00 €");
+  await page.getByRole("button", { name: "Software bearbeiten" }).click();
+  await form.getByLabel("Betrag in €").fill("240");
+  await form.getByRole("button", { name: "Änderungen speichern" }).click();
+  await expect(page.locator(".fixed-costs-total")).toContainText("890,00 €");
+  await page.getByRole("button", { name: "Miete löschen" }).click();
+  await page.getByRole("button", { name: "Löschen bestätigen" }).click();
+  await expect(page.locator(".fixed-costs-total")).toContainText("20,00 €");
+  await expect(page.locator(".fixed-costs-list")).not.toContainText("Miete");
+  await page.screenshot({
+    path: `artifacts/${testInfo.project.name}-fixed-costs.png`,
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("manual account login and invalid invitation states", async ({ page }) => {
   await page.goto("/login");
   await expect(
