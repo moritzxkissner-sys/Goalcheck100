@@ -6,8 +6,11 @@ import {
   entrySchema,
   fixedCostSchema,
   goalSchema,
+  monthSchema,
+  teamCalendarEntrySchema,
 } from "@/lib/validation";
 import { berlinDate } from "@/lib/metrics";
+import type { TeamCalendarEntry } from "@/lib/team-calendar";
 async function member() {
   if (!isConfigured()) throw new Error("Supabase ist noch nicht eingerichtet.");
   const db = await supabaseServer();
@@ -182,6 +185,69 @@ export async function removeFixedCost(id: string) {
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Löschen fehlgeschlagen.",
+    };
+  }
+}
+
+export async function createTeamCalendarEntry(input: unknown) {
+  try {
+    const parsed = teamCalendarEntrySchema.safeParse(input);
+    if (!parsed.success)
+      return { error: "Bitte prüfe Mitarbeiter, Zeitraum, Grund und Kommentar." };
+    const { db, user } = await member();
+    if (parsed.data.user_id !== user.id)
+      return { error: "Du kannst nur eigene Termine eintragen." };
+    const { error } = await db.from("team_calendar_entries").insert({
+      user_id: user.id,
+      starts_on: parsed.data.starts_on,
+      ends_on: parsed.data.ends_on,
+      reason: parsed.data.reason,
+      comment: parsed.data.comment,
+    });
+    if (error)
+      return { error: "Der Termin konnte nicht gespeichert werden." };
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Speichern fehlgeschlagen.",
+    };
+  }
+}
+
+export async function loadTeamCalendarMonth(month: string): Promise<{
+  entries: TeamCalendarEntry[];
+  error?: string;
+}> {
+  try {
+    if (!monthSchema.safeParse(month).success)
+      return { entries: [], error: "Ungültiger Kalendermonat." };
+    const { db } = await member();
+    const [year, monthNumber] = month.split("-").map(Number);
+    const firstDay = `${month}-01`;
+    const lastDay = new Date(Date.UTC(year, monthNumber, 0))
+      .toISOString()
+      .slice(0, 10);
+    const entries: TeamCalendarEntry[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const page = await db
+        .from("team_calendar_entries")
+        .select("id,user_id,starts_on,ends_on,reason,comment,created_at")
+        .lte("starts_on", lastDay)
+        .gte("ends_on", firstDay)
+        .order("starts_on")
+        .order("id")
+        .range(offset, offset + 499);
+      if (page.error)
+        return { entries: [], error: "Der Teamkalender konnte nicht geladen werden." };
+      entries.push(...(page.data as TeamCalendarEntry[]));
+      if (page.data.length < 500) return { entries };
+    }
+  } catch (e) {
+    return {
+      entries: [],
+      error:
+        e instanceof Error ? e.message : "Der Teamkalender konnte nicht geladen werden.",
     };
   }
 }
