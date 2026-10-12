@@ -43,6 +43,8 @@ import {
   removeCancellation,
   removeEntry,
   saveGoal,
+  createTeamCalendarEntry,
+  loadTeamCalendarMonth,
 } from "@/app/actions";
 import { signOut } from "@/app/login/actions";
 import {
@@ -70,6 +72,8 @@ import {
 import { cancellationSchema, entrySchema, goalSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
 import FixedCostsPanel from "@/components/fixed-costs";
+import TeamCalendar from "@/components/team-calendar";
+import type { TeamCalendarEntry, TeamCalendarInput } from "@/lib/team-calendar";
 
 const categoryIcons = {
   Rechtsschutz: ShieldCheck,
@@ -434,6 +438,8 @@ export default function Dashboard({
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [filter, setFilter] = useState("Alle");
+  const [calendarOpenSignal, setCalendarOpenSignal] = useState(0);
+  const demoCalendarEntries = useRef<TeamCalendarEntry[]>(initial.calendarEntries);
   const entryId = useRef("");
   const cancellationId = useRef("");
   useEffect(() => {
@@ -552,7 +558,11 @@ export default function Dashboard({
     d.setUTCMonth(d.getUTCMonth() + direction);
     const month = d.toISOString().slice(0, 7);
     if (demo) {
-      setData((old) => ({ ...demoData(month), fixedCosts: old.fixedCosts }));
+      setData((old) => ({
+        ...demoData(month),
+        fixedCosts: old.fixedCosts,
+        calendarEntries: demoCalendarEntries.current,
+      }));
       setMessage("Demo-Monat mit Beispieldaten geöffnet.");
     } else router.push(`/?month=${month}`, { scroll: false });
   };
@@ -797,6 +807,7 @@ export default function Dashboard({
         setData((old) => ({
           ...demoData(currentMonth()),
           fixedCosts: old.fixedCosts,
+          calendarEntries: demoCalendarEntries.current,
         }));
       else router.push("/", { scroll: false });
     }
@@ -973,7 +984,7 @@ export default function Dashboard({
                     ? "Alle deine Abschlüsse, an einem Ort."
                     : view === "fixedCosts"
                       ? "Deine laufenden Kosten. Nur für dich sichtbar."
-                      : "Eure BWS von heute. Jeden Tag eine neue Runde."}
+                  : "Abwesenheiten und Verfügbarkeiten im Überblick."}
               </p>
             </div>
             <div className="heading-actions">
@@ -1006,8 +1017,16 @@ export default function Dashboard({
                   >
                     <ArrowDownLeft size={17} /> Storno eintragen
                   </button>
-                  <button className="primary add-button" onClick={openEntry}>
-                    <Plus size={18} /> BWS hinzufügen
+                  <button
+                    className="primary add-button"
+                    onClick={
+                      view === "team"
+                        ? () => setCalendarOpenSignal((value) => value + 1)
+                        : openEntry
+                    }
+                  >
+                    <Plus size={18} />{" "}
+                    {view === "team" ? "Abwesenheit eintragen" : "BWS hinzufügen"}
                   </button>
                 </>
               )}
@@ -1458,6 +1477,46 @@ export default function Dashboard({
 
           {view === "team" && (
             <>
+              <TeamCalendar
+                members={data.calendarMembers}
+                entries={data.calendarEntries}
+                currentUserId={data.userId}
+                openFormSignal={calendarOpenSignal}
+                onCreate={async (input: TeamCalendarInput) => {
+                  if (demo) {
+                    const newEntry: TeamCalendarEntry = {
+                      ...input,
+                      id: crypto.randomUUID(),
+                    };
+                    demoCalendarEntries.current = [
+                      ...demoCalendarEntries.current,
+                      newEntry,
+                    ];
+                    setData((old) => ({
+                      ...old,
+                      calendarEntries: demoCalendarEntries.current,
+                    }));
+                    return { success: true };
+                  }
+                  return createTeamCalendarEntry(input);
+                }}
+                onLoadMonth={async (month: string) => {
+                  if (demo) {
+                    const first = `${month}-01`;
+                    const [year, index] = month.split("-").map(Number);
+                    const next = `${index === 12 ? year + 1 : year}-${String(
+                      index === 12 ? 1 : index + 1,
+                    ).padStart(2, "0")}-01`;
+                    return demoCalendarEntries.current.filter(
+                      (entry) =>
+                        entry.starts_on < next && entry.ends_on >= first,
+                    );
+                  }
+                  const result = await loadTeamCalendarMonth(month);
+                  if (result.error) throw new Error(result.error);
+                  return result.entries;
+                }}
+              />
               <article
                 className="glass team-card daily-earnings-card"
                 data-testid="daily-earnings"

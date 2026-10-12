@@ -1,0 +1,405 @@
+.card {
+  overflow: hidden;
+  border: 1px solid rgba(145, 172, 214, 0.15);
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(24, 34, 50, 0.9),
+    rgba(13, 18, 28, 0.88)
+  );
+  box-shadow:
+    0 20px 55px #0005,
+    inset 0 1px #ffffff10;
+  backdrop-filter: blur(22px);
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 21px 24px 10px;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.calendarIcon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #dceaff;
+  background: linear-gradient(145deg, #1b4e99, #153462);
+  box-shadow: 0 3px 18px #0a84ff2d;
+  flex: 0 0 auto;
+}
+.heading h2 {
+  margin: 0;
+  color: #f6f8ff;
+  font-size: 20px;
+  font-weight: 680;
+  letter-spacing: -0.035em;
+}
+.heading p {
+  margin: 3px 0 0;
+  color: #9eafc7;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+.controls button,
+.controls strong {
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ffffff12;
+  border-radius: 9px;
+  color: #d5e3f8;
+  background: #172438a8;
+}
+.controls button {
+  padding: 0 11px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.controls button:hover:not(:disabled) {
+  background: #1d3553;
+  border-color: #0a84ff5c;
+}
+.controls button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.controls strong {
+  min-width: 135px;
+  padding: 0 11px;
+  background: #0c1422b7;
+  font-size: 12px;
+  font-weight: 620;
+  text-transform: capitalize;
+}
+.legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  padding: 0 24px 14px;
+  color: #bac8db;
+  font-size: 11px;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.vacation {
+  background: #148b56;
+}
+.sick {
+  background: #d53054;
+}
+.home {
+  background: #136ae2;
+}
+.learning {
+  background: #7640b5;
+}
+.other {
+  background: #e98417;
+}
+.scroller {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #476189 #111827;
+}
+.grid {
+  display: grid;
+  min-width: max-content;
+  border-top: 1px solid #ffffff15;
+}
+.memberHeading,
+.dateHeading {
+  display: flex;
+  min-height: 49px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border-right: 1px solid #ffffff0d;
+  border-bottom: 1px solid #ffffff18;
+  color: #d6e2f4;
+}
+.memberHeading {
+  justify-content: center;
+  align-items: flex-start;
+  padding-left: 16px;
+  font-size: 12px;
+  font-weight: 650;
+  background: #111b2b;
+}
+.dateHeading {
+  font-variant-numeric: tabular-nums;
+  gap: 2px;
+}
+.dateHeading small {
+  color: #94a8c4;
+  font-size: 10px;
+}
+.dateHeading strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.sticky {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  box-shadow: 1px 0 #ffffff19;
+}
+.memberRow {
+  display: grid;
+  min-width: max-content;
+  grid-column: 1 / -1;
+  position: relative;
+  border-bottom: 1px solid #ffffff12;
+}
+.memberName {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0 10px 0 12px;
+  color: #e7edf8;
+  background: #101925f5;
+  font-size: 11px;
+  font-weight: 600;
+}
+.memberName > span:nth-child(2) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.memberName small {
+  margin-left: auto;
+  color: #7bb1ff;
+  font-size: 9px;
+}
+.avatar {
+  display: grid;
+  flex: 0 0 29px;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border-radius: 9px;
+  color: #d7e9ff;
+  background: linear-gradient(135deg, #184b87, #263557);
+  font-size: 10px;
+  font-weight: 700;
+}
+.memberRow:nth-of-type(3n) .avatar {
+  background: linear-gradient(135deg, #175b52, #244941);
+}
+.memberRow:nth-of-type(4n) .avatar {
+  background: linear-gradient(135deg, #724317, #4e3428);
+}
+.dayCell {
+  border-right: 1px solid #ffffff0b;
+}
+.weekend {
+  background-color: #0a84ff0e;
+}
+.today {
+  box-shadow: inset 0 0 0 999px #0a84ff0b;
+  color: #7eb5ff;
+}
+.event {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 5px;
+  height: 30px;
+  margin: 0 2px;
+  padding: 0 8px;
+  border: 1px solid #ffffff20;
+  border-radius: 6px;
+  box-shadow: 0 4px 11px #0004;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.event svg {
+  flex: 0 0 auto;
+}
+.event span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.empty {
+  margin: 0;
+  padding: 13px 24px;
+  border-top: 1px solid #ffffff10;
+  color: #8fa0b7;
+  font-size: 11px;
+}
+.form {
+  padding: 19px 20px 20px;
+  border-top: 1px solid #ffffff1b;
+  background: #111b2a70;
+}
+.form h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 13px;
+  color: #eff5ff;
+  font-size: 15px;
+  font-weight: 650;
+}
+.form h3 svg {
+  color: #9ec3ff;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 1.2fr) repeat(2, minmax(135px, 0.9fr))
+    minmax(150px, 1fr) minmax(150px, 1.3fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+.formGrid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #aabbd1;
+  font-size: 10px;
+  font-weight: 600;
+}
+.formGrid label span {
+  color: #7f91a9;
+  font-weight: 400;
+}
+.formGrid input,
+.formGrid select {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #b0c8ed1d;
+  border-radius: 8px;
+  outline: none;
+  background: #0e1725;
+  color: #e5edf9;
+  font: inherit;
+  font-size: 11px;
+  color-scheme: dark;
+}
+.formGrid input:focus,
+.formGrid select:focus {
+  border-color: #0a84ff9e;
+  box-shadow: 0 0 0 3px #0a84ff1e;
+}
+.formGrid input::placeholder {
+  color: #72839b;
+}
+.formGrid button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  height: 38px;
+  min-width: 105px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #0a84ff;
+  color: white;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 5px 20px #0a84ff35;
+}
+.formGrid button:hover:not(:disabled) {
+  background: #2b95ff;
+}
+.formGrid button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.error,
+.success {
+  margin: 10px 0 0;
+  font-size: 11px;
+}
+.error {
+  color: #ff8295;
+}
+.success {
+  color: #72d9a9;
+}
+@media (max-width: 1200px) {
+  .formGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 17px 16px 11px;
+  }
+  .heading h2 {
+    font-size: 18px;
+  }
+  .controls {
+    width: 100%;
+  }
+  .controls strong {
+    flex: 1;
+  }
+  .legend {
+    justify-content: flex-start;
+    padding: 1px 16px 14px;
+    gap: 8px 12px;
+  }
+  .form {
+    padding: 17px 15px 18px;
+  }
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .formGrid label:first-child,
+  .formGrid label:nth-child(5),
+  .formGrid button {
+    grid-column: 1 / -1;
+  }
+  .formGrid button {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .controls button {
+    transition: none;
+  }
+}
