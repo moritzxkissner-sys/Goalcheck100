@@ -1,11 +1,13 @@
 import { defineConfig } from "@playwright/test";
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
+const baseURL = `http://localhost:${port}`;
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,
   timeout: 90000,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     headless: true,
     channel: process.platform === "win32" ? "msedge" : undefined,
     trace: "retain-on-failure",
@@ -22,8 +24,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? "npm run start" : "npm run dev",
-    url: "http://localhost:3000",
+    command: process.env.CI
+      ? `npx next start --hostname 0.0.0.0 --port ${port}`
+      : `npx next dev --webpack --hostname 0.0.0.0 --port ${port}`,
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 120000,
   },
