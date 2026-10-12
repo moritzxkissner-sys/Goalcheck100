@@ -13,6 +13,8 @@ import {
 import { monthSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
 import type { FixedCost } from "@/lib/fixed-costs";
+import type { TeamCalendarMember } from "@/lib/team-calendar";
+import { loadTeamCalendarMonth } from "@/app/actions";
 export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
@@ -91,7 +93,7 @@ export default async function Home({
       if (page.data.length < 500) return { data: rows, error: null };
     }
   }
-  const [entries, cancellations, fixedCosts, goal, team, daily] =
+  const [entries, cancellations, fixedCosts, goal, team, daily, calendarMembers, calendar] =
     await Promise.all([
       loadEntries(),
       loadCancellations(),
@@ -104,6 +106,8 @@ export default async function Home({
         .maybeSingle(),
       db.rpc("team_leaderboard", { selected_month: start }),
       db.rpc("team_daily_leaderboard"),
+      db.rpc("team_calendar_members"),
+      loadTeamCalendarMonth(currentMonth()),
     ]);
   if (
     entries.error ||
@@ -111,7 +115,9 @@ export default async function Home({
     fixedCosts.error ||
     goal.error ||
     team.error ||
-    daily.error
+    daily.error ||
+    calendarMembers.error ||
+    calendar.error
   )
     throw new Error(
       "Die Daten konnten nicht geladen werden. Bitte prüfe die Supabase-Einrichtung.",
@@ -144,6 +150,8 @@ export default async function Home({
           ...cost,
           amount: Number(cost.amount),
         })) as FixedCost[],
+        calendarMembers: (calendarMembers.data ?? []) as TeamCalendarMember[],
+        calendarEntries: calendar.entries,
         partners: (team.data ?? []).map((p: Partner) => ({
           ...p,
           total: Number(p.total),
