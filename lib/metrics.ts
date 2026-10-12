@@ -53,6 +53,8 @@ export type DashboardData = {
   fixedCosts: import("./fixed-costs").FixedCost[];
   partners: Partner[];
   daily: { date: string; partners: DailyPartner[] };
+  calendarEntries: import("./team-calendar").TeamCalendarEntry[];
+  calendarMembers: import("./team-calendar").TeamCalendarMember[];
 };
 export type DailyPartner = Pick<Partner, "user_id" | "full_name" | "total">;
 export function agencyMetrics(partners: Partner[]) {

@@ -37,3 +37,21 @@ export const fixedCostSchema = z.object({
   amount,
   cadence: z.enum(["monthly", "quarterly", "yearly"]),
 });
+export const teamCalendarEntrySchema = z
+  .object({
+    user_id: z.uuid(),
+    starts_on: date,
+    ends_on: date,
+    reason: z.enum([
+      "Urlaub",
+      "Krankheit",
+      "Homeoffice",
+      "Weiterbildung",
+      "Sonstiges",
+    ]),
+    comment: z.string().trim().max(500).default(""),
+  })
+  .refine((entry) => entry.ends_on >= entry.starts_on, {
+    message: "Das Enddatum muss nach dem Startdatum liegen.",
+    path: ["ends_on"],
+  });

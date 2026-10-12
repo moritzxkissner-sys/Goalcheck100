@@ -43,6 +43,40 @@ export function demoData(month = currentMonth()): DashboardData {
     entries,
     cancellations: [],
     fixedCosts: [],
+    calendarMembers: [
+      { id: "demo-you", full_name: "Berin Pretzer" },
+      { id: "demo-steven", full_name: "Steven Prell" },
+      { id: "demo-vanessa", full_name: "Vanessa Holzinger" },
+      { id: "demo-yuliia", full_name: "Yuliia Solianyk" },
+      { id: "demo-sameena", full_name: "Sameena Schlegelmilch" },
+      { id: "demo-johannes", full_name: "Johannes Bubb" },
+    ],
+    calendarEntries: [
+      {
+        id: "demo-calendar-1",
+        user_id: "demo-you",
+        starts_on: `${currentMonth()}-05`,
+        ends_on: `${currentMonth()}-09`,
+        reason: "Urlaub",
+        comment: "",
+      },
+      {
+        id: "demo-calendar-2",
+        user_id: "demo-steven",
+        starts_on: `${currentMonth()}-14`,
+        ends_on: `${currentMonth()}-16`,
+        reason: "Krankheit",
+        comment: "",
+      },
+      {
+        id: "demo-calendar-3",
+        user_id: "demo-vanessa",
+        starts_on: `${currentMonth()}-20`,
+        ends_on: `${currentMonth()}-23`,
+        reason: "Weiterbildung",
+        comment: "",
+      },
+    ],
     daily: {
       date: berlinDate(),
       partners: [
