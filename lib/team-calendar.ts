@@ -23,18 +23,16 @@ export type TeamCalendarInput = {
 
 export type TeamCalendarEntry = TeamCalendarInput & { id: string };
 
-const excludedCalendarNames = new Set([
-  "moritz kissner",
-  "alina dalga",
-  "alina dalgar",
-  "lilli fischer",
-  "lilly fischer",
-]);
+const excludedCalendarNames = new Set(["alina dalga", "alina dalgar"]);
 
 export function isCalendarMemberName(name: string) {
-  return !excludedCalendarNames.has(name.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE"));
+  return !excludedCalendarNames.has(
+    name.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE"),
+  );
 }
 
-export function filterCalendarMembers<T extends TeamCalendarMember>(members: T[]) {
+export function filterCalendarMembers<T extends TeamCalendarMember>(
+  members: T[],
+) {
   return members.filter((member) => isCalendarMemberName(member.full_name));
 }
