@@ -14,18 +14,24 @@ test("team calendar filters members, navigates months and renders a new absence"
     .click();
 
   const calendar = page.getByTestId("team-calendar");
-  await expect(calendar.getByRole("heading", { name: "Teamkalender" })).toBeVisible();
+  await expect(
+    calendar.getByRole("heading", { name: "Teamkalender" }),
+  ).toBeVisible();
   for (const name of [
     "Berin Pretzer",
     "Steven Prell",
     "Vanessa Holzinger",
-    "Yuliia Solianyk",
+    "Julia Soljanik",
     "Sameena Schlegelmilch",
     "Johannes Bubb",
+    "Lilli Fischer",
+    "Moritz Kissner",
   ]) {
-    await expect(calendar.getByText(name, { exact: true }).first()).toBeVisible();
+    await expect(
+      calendar.getByText(name, { exact: true }).first(),
+    ).toBeVisible();
   }
-  for (const name of ["Moritz Kissner", "Alina Dalga", "Lilli Fischer"]) {
+  for (const name of ["Alina Dalga"]) {
     await expect(calendar.getByText(name, { exact: true })).toHaveCount(0);
   }
 
