@@ -2,30 +2,35 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
-import { filterCalendarMembers, isCalendarMemberName } from "../lib/team-calendar";
+import {
+  filterCalendarMembers,
+  isCalendarMemberName,
+} from "../lib/team-calendar";
 
-const ids = Array.from({ length: 10 }, (_, i) =>
-  `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+const ids = Array.from(
+  { length: 10 },
+  (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
 );
 
-test("calendar member filter handles excluded people and name variants", () => {
+test("calendar member filter only excludes Alina's name variants", () => {
+  for (const name of ["Alina Dalga", "ALINA DALGAR"]) {
+    assert.equal(isCalendarMemberName(name), false, name);
+  }
   for (const name of [
     "Moritz Kissner",
-    "Alina Dalga",
-    "ALINA DALGAR",
+    "Julia Soljanik",
     "Lilli Fischer",
     "Lilly Fischer",
-    "  lilly   fischer  ",
   ]) {
-    assert.equal(isCalendarMemberName(name), false, name);
+    assert.equal(isCalendarMemberName(name), true, name);
   }
   assert.deepEqual(
     filterCalendarMembers([
       { id: ids[0], full_name: "Steven Prell" },
       { id: ids[1], full_name: "Moritz Kissner" },
-      { id: ids[2], full_name: "Yuliia Solianyk" },
+      { id: ids[2], full_name: "Julia Soljanik" },
     ]).map(({ full_name }) => full_name),
-    ["Steven Prell", "Yuliia Solianyk"],
+    ["Steven Prell", "Moritz Kissner", "Julia Soljanik"],
   );
 });
 
@@ -43,9 +48,13 @@ test("calendar migration enforces active team visibility and owner-only writes",
     for (const file of [
       "202609280001_goal_track.sql",
       "202610120001_team_calendar.sql",
+      "202610140001_calendar_roster.sql",
     ]) {
       await db.exec(
-        await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"),
+        await readFile(
+          new URL(`../supabase/migrations/${file}`, import.meta.url),
+          "utf8",
+        ),
       );
     }
 
@@ -68,11 +77,15 @@ test("calendar migration enforces active team visibility and owner-only writes",
         [ids[index], `partner${index}@example.test`, names[index]],
       );
     }
-    await db.query("update public.profiles set active = true where id <> $1", [ids[9]]);
+    await db.query("update public.profiles set active = true where id <> $1", [
+      ids[9],
+    ]);
 
     async function asUser<T>(id: string, operation: () => Promise<T>) {
       await db.exec("begin; set local role authenticated;");
-      await db.query("select set_config('request.jwt.claim.sub', $1, true)", [id]);
+      await db.query("select set_config('request.jwt.claim.sub', $1, true)", [
+        id,
+      ]);
       try {
         const result = await operation();
         await db.exec("commit");
@@ -84,11 +97,55 @@ test("calendar migration enforces active team visibility and owner-only writes",
     }
 
     const members = await asUser(ids[0], () =>
-      db.query<{ id: string; full_name: string }>("select * from public.team_calendar_members()"),
+      db.query<{ id: string; full_name: string }>(
+        "select * from public.team_calendar_members()",
+      ),
     );
     assert.deepEqual(
       members.rows.map(({ full_name }) => full_name).sort(),
-      names.slice(0, 6).sort(),
+      [
+        "Steven Prell",
+        "Berin Pretzer",
+        "Vanessa Holzinger",
+        "Julia Soljanik",
+        "Sameena Schlegelmilch",
+        "Johannes Bubb",
+        "Moritz Kissner",
+        "Lilli Fischer",
+      ].sort(),
+    );
+    assert.equal(
+      members.rows.length,
+      8,
+      "linked members must not receive duplicate placeholder rows",
+    );
+
+    await db.query(
+      "update public.profiles set active = false where id in ($1, $2)",
+      [ids[3], ids[8]],
+    );
+    const standbyMembers = await asUser(ids[0], () =>
+      db.query<{ id: string; full_name: string }>(
+        "select * from public.team_calendar_members()",
+      ),
+    );
+    for (const name of ["Julia Soljanik", "Lilli Fischer"]) {
+      assert.equal(
+        standbyMembers.rows.filter((member) => member.full_name === name)
+          .length,
+        1,
+      );
+    }
+    assert.equal(
+      standbyMembers.rows.some(
+        (member) => member.id === ids[3] || member.id === ids[8],
+      ),
+      false,
+      "inactive accounts must not be exposed as linked members",
+    );
+    await db.query(
+      "update public.profiles set active = true where id in ($1, $2)",
+      [ids[3], ids[8]],
     );
 
     const first = await asUser(ids[0], () =>
@@ -120,7 +177,10 @@ test("calendar migration enforces active team visibility and owner-only writes",
     assert.equal(
       (
         await asUser(ids[1], () =>
-          db.query("update public.team_calendar_entries set reason = 'Krankheit' where id = $1 returning id", [eventId]),
+          db.query(
+            "update public.team_calendar_entries set reason = 'Krankheit' where id = $1 returning id",
+            [eventId],
+          ),
         )
       ).rows.length,
       0,
@@ -128,14 +188,20 @@ test("calendar migration enforces active team visibility and owner-only writes",
     assert.equal(
       (
         await asUser(ids[1], () =>
-          db.query("delete from public.team_calendar_entries where id = $1 returning id", [eventId]),
+          db.query(
+            "delete from public.team_calendar_entries where id = $1 returning id",
+            [eventId],
+          ),
         )
       ).rows.length,
       0,
     );
     await assert.rejects(
       asUser(ids[0], () =>
-        db.query("update public.team_calendar_entries set user_id = $1 where id = $2", [ids[1], eventId]),
+        db.query(
+          "update public.team_calendar_entries set user_id = $1 where id = $2",
+          [ids[1], eventId],
+        ),
       ),
       /row-level security/,
     );
@@ -156,21 +222,32 @@ test("calendar migration enforces active team visibility and owner-only writes",
       );
     }
 
-    await assert.rejects(
-      asUser(ids[6], () =>
-        db.query(
-          "insert into public.team_calendar_entries(user_id,starts_on,ends_on,reason) values ($1,'2026-10-15','2026-10-15','Urlaub')",
-          [ids[6]],
-        ),
+    const moritzEntry = await asUser(ids[6], () =>
+      db.query<{ id: string }>(
+        "insert into public.team_calendar_entries(user_id,starts_on,ends_on,reason) values ($1,'2026-10-15','2026-10-15','Urlaub') returning id",
+        [ids[6]],
       ),
-      /row-level security/,
     );
+    assert.equal(moritzEntry.rows.length, 1);
+    const lilliEntry = await asUser(ids[8], () =>
+      db.query<{ id: string }>(
+        "insert into public.team_calendar_entries(user_id,starts_on,ends_on,reason) values ($1,'2026-10-15','2026-10-15','Homeoffice') returning id",
+        [ids[8]],
+      ),
+    );
+    assert.equal(lilliEntry.rows.length, 1);
     await assert.rejects(
-      asUser(ids[9], () => db.query("select * from public.team_calendar_members()")),
+      asUser(ids[9], () =>
+        db.query("select * from public.team_calendar_members()"),
+      ),
       /membership required/,
     );
     assert.equal(
-      (await asUser(ids[9], () => db.query("select * from public.team_calendar_entries"))).rows.length,
+      (
+        await asUser(ids[9], () =>
+          db.query("select * from public.team_calendar_entries"),
+        )
+      ).rows.length,
       0,
     );
     await assert.rejects(
@@ -185,13 +262,19 @@ test("calendar migration enforces active team visibility and owner-only writes",
 
     await db.exec("begin; set local role anon;");
     try {
-      await assert.rejects(db.query("select * from public.team_calendar_entries"), /permission denied/);
+      await assert.rejects(
+        db.query("select * from public.team_calendar_entries"),
+        /permission denied/,
+      );
     } finally {
       await db.exec("rollback");
     }
     await db.exec("begin; set local role anon;");
     try {
-      await assert.rejects(db.query("select * from public.team_calendar_members()"), /permission denied/);
+      await assert.rejects(
+        db.query("select * from public.team_calendar_members()"),
+        /permission denied/,
+      );
     } finally {
       await db.exec("rollback");
     }
@@ -201,12 +284,18 @@ test("calendar migration enforces active team visibility and owner-only writes",
     assert.equal(serviceRead.rows[0].allowed, false);
 
     await asUser(ids[0], () =>
-      db.query("update public.team_calendar_entries set reason = 'Weiterbildung' where id = $1", [eventId]),
+      db.query(
+        "update public.team_calendar_entries set reason = 'Weiterbildung' where id = $1",
+        [eventId],
+      ),
     );
     assert.equal(
       (
         await asUser(ids[0], () =>
-          db.query("delete from public.team_calendar_entries where id = $1 returning id", [eventId]),
+          db.query(
+            "delete from public.team_calendar_entries where id = $1 returning id",
+            [eventId],
+          ),
         )
       ).rows.length,
       1,
