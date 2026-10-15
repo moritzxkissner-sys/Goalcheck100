@@ -1,4 +1,5 @@
 "use server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { supabaseServer, isConfigured } from "@/lib/supabase/server";
 import {
@@ -193,7 +194,9 @@ export async function createTeamCalendarEntry(input: unknown) {
   try {
     const parsed = teamCalendarEntrySchema.safeParse(input);
     if (!parsed.success)
-      return { error: "Bitte prüfe Mitarbeiter, Zeitraum, Grund und Kommentar." };
+      return {
+        error: "Bitte prüfe Mitarbeiter, Zeitraum, Grund und Kommentar.",
+      };
     const { db, user } = await member();
     if (parsed.data.user_id !== user.id)
       return { error: "Du kannst nur eigene Termine eintragen." };
@@ -204,13 +207,35 @@ export async function createTeamCalendarEntry(input: unknown) {
       reason: parsed.data.reason,
       comment: parsed.data.comment,
     });
-    if (error)
-      return { error: "Der Termin konnte nicht gespeichert werden." };
+    if (error) return { error: "Der Termin konnte nicht gespeichert werden." };
     revalidatePath("/");
     return { success: true };
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Speichern fehlgeschlagen.",
+    };
+  }
+}
+
+export async function removeTeamCalendarEntry(id: string) {
+  try {
+    if (!z.uuid().safeParse(id).success)
+      return { error: "Ungültiger Kalendereintrag." };
+    const { db, user } = await member();
+    const { data, error } = await db
+      .from("team_calendar_entries")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data)
+      return { error: "Der Termin konnte nicht gelöscht werden." };
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Löschen fehlgeschlagen.",
     };
   }
 }
@@ -239,7 +264,10 @@ export async function loadTeamCalendarMonth(month: string): Promise<{
         .order("id")
         .range(offset, offset + 499);
       if (page.error)
-        return { entries: [], error: "Der Teamkalender konnte nicht geladen werden." };
+        return {
+          entries: [],
+          error: "Der Teamkalender konnte nicht geladen werden.",
+        };
       entries.push(...(page.data as TeamCalendarEntry[]));
       if (page.data.length < 500) return { entries };
     }
@@ -247,7 +275,9 @@ export async function loadTeamCalendarMonth(month: string): Promise<{
     return {
       entries: [],
       error:
-        e instanceof Error ? e.message : "Der Teamkalender konnte nicht geladen werden.",
+        e instanceof Error
+          ? e.message
+          : "Der Teamkalender konnte nicht geladen werden.",
     };
   }
 }
