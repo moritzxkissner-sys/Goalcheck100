@@ -51,6 +51,17 @@ test("team calendar filters members, navigates months and renders a new absence"
   await form.getByRole("button", { name: "Eintragen" }).click();
   await expect(form.getByRole("status")).toContainText("eingetragen");
   await expect(calendar.getByTitle(/Berin Pretzer: Homeoffice/)).toBeVisible();
+  await expect(
+    calendar.getByRole("button", { name: /Krankheit.*löschen/ }),
+  ).toHaveCount(0);
+  await calendar
+    .getByRole("button", {
+      name: `Homeoffice vom 20.${currentMonth().slice(5)}.${currentMonth().slice(0, 4)} löschen`,
+    })
+    .click();
+  await calendar.getByRole("button", { name: "Ja, löschen" }).click();
+  await expect(form.getByRole("status")).toContainText("gelöscht");
+  await expect(calendar.getByTitle(/Berin Pretzer: Homeoffice/)).toHaveCount(0);
 
   await page.setViewportSize({ width: 320, height: 720 });
   expect(
