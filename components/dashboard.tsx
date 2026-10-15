@@ -46,6 +46,7 @@ import {
   removeEntry,
   saveGoal,
   createTeamCalendarEntry,
+  removeTeamCalendarEntry,
   loadTeamCalendarMonth,
 } from "@/app/actions";
 import { signOut } from "@/app/login/actions";
@@ -1549,6 +1550,28 @@ export default function Dashboard({
                     return { success: true };
                   }
                   return createTeamCalendarEntry(input);
+                }}
+                onDelete={async (id: string) => {
+                  if (demo) {
+                    const ownEntry = demoCalendarEntries.current.find(
+                      (entry) =>
+                        entry.id === id && entry.user_id === data.userId,
+                    );
+                    if (!ownEntry)
+                      return {
+                        error: "Der Termin konnte nicht gelöscht werden.",
+                      };
+                    demoCalendarEntries.current =
+                      demoCalendarEntries.current.filter(
+                        (entry) => entry.id !== id,
+                      );
+                    setData((old) => ({
+                      ...old,
+                      calendarEntries: demoCalendarEntries.current,
+                    }));
+                    return { success: true };
+                  }
+                  return removeTeamCalendarEntry(id);
                 }}
                 onLoadMonth={async (month: string) => {
                   if (demo) {

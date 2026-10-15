@@ -11,6 +11,7 @@ import {
   Plus,
   Stethoscope,
   Tag,
+  Trash2,
 } from "lucide-react";
 import {
   calendarReasons,
@@ -25,6 +26,7 @@ export type TeamCalendarProps = {
   entries: TeamCalendarEntry[];
   currentUserId: string;
   onCreate: (input: TeamCalendarInput) => Promise<{ error?: string }>;
+  onDelete: (id: string) => Promise<{ error?: string }>;
   onLoadMonth: (month: string) => Promise<TeamCalendarEntry[]>;
   openFormSignal?: number;
 };
@@ -101,6 +103,7 @@ export default function TeamCalendar({
   entries,
   currentUserId,
   onCreate,
+  onDelete,
   onLoadMonth,
   openFormSignal = 0,
 }: TeamCalendarProps) {
@@ -109,6 +112,8 @@ export default function TeamCalendar({
   const [visibleEntries, setVisibleEntries] = useState(entries);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [startsOn, setStartsOn] = useState(today);
@@ -134,6 +139,7 @@ export default function TeamCalendar({
     setMonth(nextMonth);
     setLoading(true);
     setError("");
+    setConfirmDeleteId(null);
     try {
       const loaded = await onLoadMonth(nextMonth);
       if (id === requestId.current) setVisibleEntries(loaded);
@@ -142,6 +148,30 @@ export default function TeamCalendar({
         setError("Der Kalender konnte nicht geladen werden.");
     } finally {
       if (id === requestId.current) setLoading(false);
+    }
+  }
+
+  async function deleteEntry(id: string) {
+    setDeletingId(id);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await onDelete(id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setVisibleEntries((current) =>
+        current.filter((entry) => entry.id !== id),
+      );
+      setConfirmDeleteId(null);
+      setSuccess("Kalendereintrag gelöscht.");
+    } catch {
+      setError(
+        "Der Termin konnte nicht gelöscht werden. Bitte versuche es erneut.",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -203,6 +233,11 @@ export default function TeamCalendar({
     return { day, weekday, date: `${month}-${String(day).padStart(2, "0")}` };
   });
   const myMember = members.find((member) => member.id === currentUserId);
+  const myEntries = visibleEntries
+    .filter((entry) => entry.user_id === currentUserId)
+    .sort((a, b) => a.starts_on.localeCompare(b.starts_on));
+  const formatDate = (date: string) =>
+    `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`;
 
   return (
     <section
@@ -360,6 +395,62 @@ export default function TeamCalendar({
       {visibleEntries.length === 0 && members.length > 0 && !loading && (
         <p className={styles.empty}>Keine Termine in diesem Monat.</p>
       )}
+
+      <div className={styles.ownEntries} aria-label="Meine Kalendereinträge">
+        <h3>Meine Termine in diesem Monat</h3>
+        {myEntries.length === 0 ? (
+          <p>Du hast in diesem Monat keine Termine eingetragen.</p>
+        ) : (
+          <ul>
+            {myEntries.map((entry) => (
+              <li key={entry.id}>
+                <span
+                  className={`${styles.entryDot} ${reasonClasses[entry.reason]}`}
+                />
+                <span className={styles.entryDetails}>
+                  <strong>{entry.reason}</strong>
+                  <small>
+                    {formatDate(entry.starts_on)}
+                    {entry.ends_on !== entry.starts_on
+                      ? ` – ${formatDate(entry.ends_on)}`
+                      : ""}
+                  </small>
+                </span>
+                {confirmDeleteId === entry.id ? (
+                  <span className={styles.deleteConfirm}>
+                    <span>Wirklich löschen?</span>
+                    <button
+                      type="button"
+                      className={styles.confirmButton}
+                      onClick={() => void deleteEntry(entry.id)}
+                      disabled={deletingId !== null || saving}
+                    >
+                      {deletingId === entry.id ? "Lösche…" : "Ja, löschen"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      disabled={deletingId !== null}
+                    >
+                      Abbrechen
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.deleteButton}
+                    aria-label={`${entry.reason} vom ${formatDate(entry.starts_on)} löschen`}
+                    onClick={() => setConfirmDeleteId(entry.id)}
+                    disabled={deletingId !== null || saving}
+                  >
+                    <Trash2 size={15} aria-hidden="true" /> Löschen
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <form
         id="team-calendar-form"
