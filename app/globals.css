@@ -955,6 +955,54 @@ h3 {
   padding: 1px 6px;
   color: #96a3b9;
 }
+.sidebar-sublink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -2px 0 0 48px;
+  padding: 7px 10px;
+  border-left: 1px solid #448cff35;
+  color: #8fa9d0;
+  font-size: 12px;
+  border-radius: 0 8px 8px 0;
+}
+.sidebar-sublink:hover,
+.sidebar-sublink:focus-visible {
+  color: #c9ddff;
+  background: #448cff14;
+}
+.training-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: clamp(24px, 4vw, 42px);
+  border: 1px solid #448cff26;
+  background: linear-gradient(135deg, #15233bca, #121822a8);
+}
+.training-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 15px;
+  color: #72aaff;
+  background: #448cff25;
+}
+.training-card h2 {
+  margin: 10px 0 8px;
+}
+.training-card p {
+  color: #a9b6ca;
+}
+.training-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  text-decoration: none;
+}
 .sidebar-bottom {
   margin-top: auto;
   padding-top: 30px;
@@ -2511,7 +2559,8 @@ select:focus {
   .mobile-nav > button {
     border: 0;
     min-height: 47px;
-    min-width: 64px;
+    min-width: 0;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2520,6 +2569,16 @@ select:focus {
     background: none;
     color: #78869d;
     font-size: 9px;
+  }
+  .mobile-nav > button span {
+    overflow-wrap: anywhere;
+  }
+  .training-card {
+    gap: 16px;
+  }
+  .training-icon {
+    width: 44px;
+    height: 44px;
   }
   .mobile-nav > button.active {
     color: #65a6ff;

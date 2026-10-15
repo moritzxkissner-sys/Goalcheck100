@@ -20,6 +20,8 @@ import {
   ChevronRight,
   CircleHelp,
   Cross,
+  ExternalLink,
+  GraduationCap,
   HeartPulse,
   House,
   LayoutDashboard,
@@ -99,7 +101,9 @@ const categoryColors = [
   "#7286ee",
   "#969ba8",
 ];
-type View = "overview" | "entries" | "fixedCosts" | "team";
+type View = "overview" | "entries" | "fixedCosts" | "team" | "training";
+
+const learnSpotUrl = "https://araglearnspot.avendoo.de/ui/index#/start";
 
 function Modal({
   title,
@@ -439,7 +443,9 @@ export default function Dashboard({
   const [pending, startTransition] = useTransition();
   const [filter, setFilter] = useState("Alle");
   const [calendarOpenSignal, setCalendarOpenSignal] = useState(0);
-  const demoCalendarEntries = useRef<TeamCalendarEntry[]>(initial.calendarEntries);
+  const demoCalendarEntries = useRef<TeamCalendarEntry[]>(
+    initial.calendarEntries,
+  );
   const entryId = useRef("");
   const cancellationId = useRef("");
   useEffect(() => {
@@ -799,6 +805,7 @@ export default function Dashboard({
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
     { id: "fixedCosts" as const, label: "Meine Fixkosten", icon: Calculator },
     { id: "team" as const, label: "Team", icon: Users },
+    { id: "training" as const, label: "Weiterbildung", icon: GraduationCap },
   ];
   const selectView = (next: View) => {
     setView(next);
@@ -885,6 +892,14 @@ export default function Dashboard({
               )}
             </button>
           ))}
+          <a
+            className="sidebar-sublink"
+            href={learnSpotUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ARAG LearnSpot <ExternalLink size={14} aria-hidden="true" />
+          </a>
         </nav>
         <div className="sidebar-bottom">
           <div className="team-note">
@@ -959,9 +974,11 @@ export default function Dashboard({
               <div className="eyebrow">
                 {view === "team"
                   ? "HEUTE IM TEAM"
-                  : view === "fixedCosts"
-                    ? "DEIN PRIVATER KOSTENPLAN"
-                    : "DEINE PERFORMANCE IM BLICK"}
+                  : view === "training"
+                    ? "DEINE WEITERBILDUNG"
+                    : view === "fixedCosts"
+                      ? "DEIN PRIVATER KOSTENPLAN"
+                      : "DEINE PERFORMANCE IM BLICK"}
               </div>
               <h1>
                 {view === "overview" ? (
@@ -973,6 +990,8 @@ export default function Dashboard({
                   "Meine Einträge"
                 ) : view === "fixedCosts" ? (
                   "Meine Fixkosten"
+                ) : view === "training" ? (
+                  "Weiterbildung"
                 ) : (
                   "Unser Team"
                 )}
@@ -984,32 +1003,36 @@ export default function Dashboard({
                     ? "Alle deine Abschlüsse, an einem Ort."
                     : view === "fixedCosts"
                       ? "Deine laufenden Kosten. Nur für dich sichtbar."
-                  : "Abwesenheiten und Verfügbarkeiten im Überblick."}
+                      : view === "training"
+                        ? "Dein Zugang zur ARAG Lernplattform."
+                        : "Abwesenheiten und Verfügbarkeiten im Überblick."}
               </p>
             </div>
             <div className="heading-actions">
-              {view !== "team" && view !== "fixedCosts" && (
-                <div className="month-switch">
-                  <button
-                    aria-label="Vorheriger Monat"
-                    onClick={() => changeMonth(-1)}
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span>
-                    <CalendarDays size={15} />
-                    {monthLabel(data.month)}
-                  </span>
-                  <button
-                    aria-label="Nächster Monat"
-                    disabled={data.month >= currentMonth()}
-                    onClick={() => changeMonth(1)}
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              )}
-              {view !== "fixedCosts" && (
+              {view !== "team" &&
+                view !== "fixedCosts" &&
+                view !== "training" && (
+                  <div className="month-switch">
+                    <button
+                      aria-label="Vorheriger Monat"
+                      onClick={() => changeMonth(-1)}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span>
+                      <CalendarDays size={15} />
+                      {monthLabel(data.month)}
+                    </span>
+                    <button
+                      aria-label="Nächster Monat"
+                      disabled={data.month >= currentMonth()}
+                      onClick={() => changeMonth(1)}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+              {view !== "fixedCosts" && view !== "training" && (
                 <>
                   <button
                     className="secondary storno-button"
@@ -1026,13 +1049,40 @@ export default function Dashboard({
                     }
                   >
                     <Plus size={18} />{" "}
-                    {view === "team" ? "Abwesenheit eintragen" : "BWS hinzufügen"}
+                    {view === "team"
+                      ? "Abwesenheit eintragen"
+                      : "BWS hinzufügen"}
                   </button>
                 </>
               )}
             </div>
           </section>
 
+          {view === "training" && (
+            <section
+              className="glass training-card"
+              aria-labelledby="training-title"
+            >
+              <span className="training-icon">
+                <GraduationCap size={27} />
+              </span>
+              <div>
+                <div className="eyebrow">LERNNPLATTFORM</div>
+                <h2 id="training-title">ARAG LearnSpot</h2>
+                <p>
+                  Öffne deine Weiterbildungen und Lerninhalte im ARAG LearnSpot.
+                </p>
+                <a
+                  className="primary training-link"
+                  href={learnSpotUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  LearnSpot öffnen <ExternalLink size={17} aria-hidden="true" />
+                </a>
+              </div>
+            </section>
+          )}
           {view === "overview" && (
             <>
               <section className="metrics-grid" aria-label="Monatskennzahlen">
