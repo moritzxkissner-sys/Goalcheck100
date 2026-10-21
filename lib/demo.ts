@@ -47,12 +47,14 @@ export function demoData(month = currentMonth()): DashboardData {
       { id: "demo-you", full_name: "Berin Pretzer" },
       { id: "demo-steven", full_name: "Steven Prell" },
       { id: "demo-vanessa", full_name: "Vanessa Holzinger" },
-      { id: "demo-julia", full_name: "Julia Soljanik" },
+      { id: "demo-julia", full_name: "Yuliia Solianyk" },
+      { id: "demo-alina", full_name: "Alina Dalga" },
       { id: "demo-sameena", full_name: "Sameena Schlegelmilch" },
       { id: "demo-johannes", full_name: "Johannes Bubb" },
       { id: "demo-lilli", full_name: "Lilli Fischer" },
       { id: "demo-moritz", full_name: "Moritz Kissner" },
     ],
+    canManageCalendar: false,
     calendarEntries: [
       {
         id: "demo-calendar-1",
@@ -97,7 +99,7 @@ export function demoData(month = currentMonth()): DashboardData {
         },
         { user_id: "demo-johannes", full_name: "Johannes Bubb", total: 420 },
         { user_id: "demo-vanessa", full_name: "Vanessa Holzinger", total: 0 },
-        { user_id: "demo-alina", full_name: "Alina Wolf", total: 0 },
+        { user_id: "demo-alina", full_name: "Alina Dalga", total: 0 },
       ],
     },
     partners: rankPartners([
@@ -138,7 +140,7 @@ export function demoData(month = currentMonth()): DashboardData {
       },
       {
         user_id: "demo-alina",
-        full_name: "Alina Wolf",
+        full_name: "Alina Dalga",
         total: 4950,
         target: 8000,
         entry_count: 5,

@@ -11,6 +11,7 @@ export type TeamCalendarReason = (typeof calendarReasons)[number];
 export type TeamCalendarMember = {
   id: string;
   full_name: string;
+  can_receive_entries?: boolean;
 };
 
 export type TeamCalendarInput = {
@@ -23,12 +24,8 @@ export type TeamCalendarInput = {
 
 export type TeamCalendarEntry = TeamCalendarInput & { id: string };
 
-const excludedCalendarNames = new Set(["alina dalga", "alina dalgar"]);
-
 export function isCalendarMemberName(name: string) {
-  return !excludedCalendarNames.has(
-    name.trim().replace(/\s+/g, " ").toLocaleLowerCase("de-DE"),
-  );
+  return name.trim().length > 0;
 }
 
 export function filterCalendarMembers<T extends TeamCalendarMember>(
