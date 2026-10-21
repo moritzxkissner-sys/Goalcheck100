@@ -21,7 +21,8 @@ test("team calendar filters members, navigates months and renders a new absence"
     "Berin Pretzer",
     "Steven Prell",
     "Vanessa Holzinger",
-    "Julia Soljanik",
+    "Yuliia Solianyk",
+    "Alina Dalga",
     "Sameena Schlegelmilch",
     "Johannes Bubb",
     "Lilli Fischer",
@@ -30,9 +31,6 @@ test("team calendar filters members, navigates months and renders a new absence"
     await expect(
       calendar.getByText(name, { exact: true }).first(),
     ).toBeVisible();
-  }
-  for (const name of ["Alina Dalga"]) {
-    await expect(calendar.getByText(name, { exact: true })).toHaveCount(0);
   }
 
   await calendar.getByRole("button", { name: "Nächster Monat" }).click();
