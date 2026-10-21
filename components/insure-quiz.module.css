@@ -1,0 +1,158 @@
+.card {
+  max-width: 880px;
+  padding: clamp(24px, 4vw, 42px);
+  border-color: #448cff30;
+  background: linear-gradient(135deg, #15233bca, #121822a8);
+}
+
+.card h2 {
+  margin: 12px 0 12px;
+  color: #f4f7ff;
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.28;
+}
+
+.card > p,
+.feedback p {
+  max-width: 65ch;
+  color: #a9b6ca;
+  line-height: 1.65;
+}
+
+.card button.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #99a9bf;
+  font-size: 12px;
+}
+
+.progressTrack {
+  height: 6px;
+  margin: 15px 0 28px;
+  border-radius: 99px;
+  background: #ffffff16;
+  overflow: hidden;
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #448cff, #78b5ff);
+}
+
+.options {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.options legend {
+  margin-bottom: 12px;
+  color: #91a3bd;
+  font-size: 12px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 17px;
+  border: 1px solid #ffffff17;
+  border-radius: 11px;
+  color: #d6e0ef;
+  background: #ffffff08;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.option:hover,
+.selected {
+  border-color: #5598ff9c;
+  background: #448cff18;
+}
+
+.option input {
+  accent-color: #6fa8ff;
+}
+
+.rightOption {
+  border-color: #54c99b9c;
+  background: #54c99b17;
+}
+
+.wrongOption {
+  border-color: #ec879396;
+  background: #ec879317;
+}
+
+.error {
+  color: #ff9ca7 !important;
+  font-size: 13px;
+}
+
+.feedback {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #ffffff16;
+}
+
+.feedback strong,
+.resultList .correct,
+.resultList .incorrect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.correct {
+  color: #67d3a4;
+}
+.incorrect {
+  color: #ff9ca7;
+}
+
+.resultList {
+  display: grid;
+  gap: 11px;
+  margin-top: 28px;
+}
+
+.resultList > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  color: #cbd7e8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.resultList > div > span:first-child {
+  flex: none;
+}
+
+.sources {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #ffffff12;
+  color: #7f90a9 !important;
+  font-size: 11px;
+}
+
+.sources a {
+  color: #9fc4ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

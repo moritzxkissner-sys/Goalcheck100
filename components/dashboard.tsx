@@ -25,9 +25,11 @@ import {
   HeartPulse,
   House,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Plus,
   Share2,
+  ScrollText,
   ShieldCheck,
   Sparkles,
   Target,
@@ -76,6 +78,9 @@ import { cancellationSchema, entrySchema, goalSchema } from "@/lib/validation";
 import { demoData } from "@/lib/demo";
 import FixedCostsPanel from "@/components/fixed-costs";
 import TeamCalendar from "@/components/team-calendar";
+import InsureQuiz from "@/components/insure-quiz";
+import TrainingDocuments from "@/components/training-documents";
+import InsurerDirectory from "@/components/insurer-directory";
 import type { TeamCalendarEntry, TeamCalendarInput } from "@/lib/team-calendar";
 
 const categoryIcons = {
@@ -102,9 +107,31 @@ const categoryColors = [
   "#7286ee",
   "#969ba8",
 ];
-type View = "overview" | "entries" | "fixedCosts" | "team" | "training";
+type View =
+  | "overview"
+  | "entries"
+  | "fixedCosts"
+  | "team"
+  | "commissions"
+  | "offers"
+  | "cancellations"
+  | "training"
+  | "quiz";
 
 const learnSpotUrl = "https://araglearnspot.avendoo.de/ui/index#/start";
+
+function msUntilNextBerlinDay(now = new Date()) {
+  const today = berlinDate(now);
+  const current = now.getTime();
+  let lower = current;
+  let upper = current + 30 * 60 * 60 * 1000;
+  while (upper - lower > 1000) {
+    const middle = Math.floor((lower + upper) / 2);
+    if (berlinDate(new Date(middle)) === today) lower = middle;
+    else upper = middle;
+  }
+  return Math.max(1, upper - current + 250);
+}
 
 function Modal({
   title,
@@ -454,18 +481,17 @@ export default function Dashboard({
     const refresh = () => {
       if (document.visibilityState === "visible") router.refresh();
     };
-    const timer = setInterval(refresh, 15000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
-      clearInterval(timer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [router, demo]);
   useEffect(() => {
     if (!demo) return;
-    const timer = setInterval(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const resetToday = () => {
       const today = berlinDate();
       setData((old) =>
         old.daily.date === today
@@ -481,8 +507,27 @@ export default function Dashboard({
               },
             },
       );
-    }, 15000);
-    return () => clearInterval(timer);
+    };
+    const scheduleMidnight = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        resetToday();
+        scheduleMidnight();
+      }, msUntilNextBerlinDay());
+    };
+    const refreshAfterReturn = () => {
+      if (document.visibilityState !== "visible") return;
+      resetToday();
+      scheduleMidnight();
+    };
+    scheduleMidnight();
+    window.addEventListener("focus", refreshAfterReturn);
+    document.addEventListener("visibilitychange", refreshAfterReturn);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", refreshAfterReturn);
+      document.removeEventListener("visibilitychange", refreshAfterReturn);
+    };
   }, [demo]);
   useEffect(() => {
     if (!message) return;
@@ -806,7 +851,11 @@ export default function Dashboard({
     { id: "entries" as const, label: "Meine Einträge", icon: Wallet },
     { id: "fixedCosts" as const, label: "Meine Fixkosten", icon: Calculator },
     { id: "team" as const, label: "Team", icon: Users },
+    { id: "commissions" as const, label: "Provisionen", icon: TrendingUp },
+    { id: "offers" as const, label: "Angebotsmanager", icon: ScrollText },
+    { id: "cancellations" as const, label: "Kündigungen", icon: X },
     { id: "training" as const, label: "Weiterbildung", icon: GraduationCap },
+    { id: "quiz" as const, label: "InsureQuiz", icon: ListChecks },
   ];
   const selectView = (next: View) => {
     setView(next);
@@ -879,28 +928,53 @@ export default function Dashboard({
         </a>
         <div className="workspace-label">DEIN WORKSPACE</div>
         <nav aria-label="Hauptnavigation">
-          {nav.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-item ${view === item.id ? "active" : ""}`}
-              onClick={() => selectView(item.id)}
-              aria-current={view === item.id ? "page" : undefined}
+          {nav
+            .filter((item) => item.id !== "quiz")
+            .map((item) => (
+              <div key={item.id}>
+                <button
+                  className={`nav-item ${view === item.id ? "active" : ""}`}
+                  onClick={() => selectView(item.id)}
+                  aria-current={view === item.id ? "page" : undefined}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                  {item.id === "team" && (
+                    <span className="nav-count">{partners.length}</span>
+                  )}
+                </button>
+                {item.id === "cancellations" && (
+                  <div className="sidebar-subnav">
+                    <button
+                      className={`sidebar-sublink ${view === "cancellations" ? "active" : ""}`}
+                      onClick={() => selectView("cancellations")}
+                      aria-current={
+                        view === "cancellations" ? "page" : undefined
+                      }
+                    >
+                      Vorversicherungen
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          <div className="sidebar-subnav" aria-label="Weiterbildung">
+            <a
+              className="sidebar-sublink"
+              href={learnSpotUrl}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-              {item.id === "team" && (
-                <span className="nav-count">{partners.length}</span>
-              )}
+              ARAG LearnSpot <ExternalLink size={14} aria-hidden="true" />
+            </a>
+            <button
+              className={`sidebar-sublink ${view === "quiz" ? "active" : ""}`}
+              onClick={() => selectView("quiz")}
+              aria-current={view === "quiz" ? "page" : undefined}
+            >
+              InsureQuiz <ListChecks size={14} aria-hidden="true" />
             </button>
-          ))}
-          <a
-            className="sidebar-sublink"
-            href={learnSpotUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            ARAG LearnSpot <ExternalLink size={14} aria-hidden="true" />
-          </a>
+          </div>
         </nav>
         <div className="sidebar-bottom">
           <div className="team-note">
@@ -975,11 +1049,15 @@ export default function Dashboard({
               <div className="eyebrow">
                 {view === "team"
                   ? "HEUTE IM TEAM"
-                  : view === "training"
+                  : view === "training" || view === "quiz"
                     ? "DEINE WEITERBILDUNG"
-                    : view === "fixedCosts"
-                      ? "DEIN PRIVATER KOSTENPLAN"
-                      : "DEINE PERFORMANCE IM BLICK"}
+                    : view === "cancellations"
+                      ? "NACH VERTRAGSENDE"
+                      : view === "commissions" || view === "offers"
+                        ? "DEINE VERTRIEBSWERKZEUGE"
+                        : view === "fixedCosts"
+                          ? "DEIN PRIVATER KOSTENPLAN"
+                          : "DEINE PERFORMANCE IM BLICK"}
               </div>
               <h1>
                 {view === "overview" ? (
@@ -993,6 +1071,14 @@ export default function Dashboard({
                   "Meine Fixkosten"
                 ) : view === "training" ? (
                   "Weiterbildung"
+                ) : view === "quiz" ? (
+                  "InsureQuiz"
+                ) : view === "commissions" ? (
+                  "Provisionen"
+                ) : view === "offers" ? (
+                  "Angebotsmanager"
+                ) : view === "cancellations" ? (
+                  "Vorversicherungen"
                 ) : (
                   "Unser Team"
                 )}
@@ -1006,13 +1092,25 @@ export default function Dashboard({
                       ? "Deine laufenden Kosten. Nur für dich sichtbar."
                       : view === "training"
                         ? "Dein Zugang zur ARAG Lernplattform."
-                        : "Abwesenheiten und Verfügbarkeiten im Überblick."}
+                        : view === "quiz"
+                          ? "Teste dein Versicherungswissen in kurzen Lerneinheiten."
+                          : view === "commissions"
+                            ? "Ein Platz für deine Provisionsübersicht."
+                            : view === "offers"
+                              ? "Ein Platz für deine Angebote."
+                              : view === "cancellations"
+                                ? "Kontaktwege für Kündigungen bei Vorversicherern."
+                                : "Abwesenheiten und Verfügbarkeiten im Überblick."}
               </p>
             </div>
             <div className="heading-actions">
               {view !== "team" &&
                 view !== "fixedCosts" &&
-                view !== "training" && (
+                view !== "training" &&
+                view !== "quiz" &&
+                view !== "commissions" &&
+                view !== "offers" &&
+                view !== "cancellations" && (
                   <div className="month-switch">
                     <button
                       aria-label="Vorheriger Monat"
@@ -1033,54 +1131,117 @@ export default function Dashboard({
                     </button>
                   </div>
                 )}
-              {view !== "fixedCosts" && view !== "training" && (
-                <>
-                  <button
-                    className="secondary storno-button"
-                    onClick={openCancellation}
-                  >
-                    <ArrowDownLeft size={17} /> Storno eintragen
-                  </button>
-                  <button
-                    className="primary add-button"
-                    onClick={
-                      view === "team"
-                        ? () => setCalendarOpenSignal((value) => value + 1)
-                        : openEntry
-                    }
-                  >
-                    <Plus size={18} />{" "}
-                    {view === "team"
-                      ? "Abwesenheit eintragen"
-                      : "BWS hinzufügen"}
-                  </button>
-                </>
-              )}
+              {view !== "fixedCosts" &&
+                view !== "training" &&
+                view !== "quiz" &&
+                view !== "commissions" &&
+                view !== "offers" &&
+                view !== "cancellations" && (
+                  <>
+                    <button
+                      className="secondary storno-button"
+                      onClick={openCancellation}
+                    >
+                      <ArrowDownLeft size={17} /> Storno eintragen
+                    </button>
+                    <button
+                      className="primary add-button"
+                      onClick={
+                        view === "team"
+                          ? () => setCalendarOpenSignal((value) => value + 1)
+                          : openEntry
+                      }
+                    >
+                      <Plus size={18} />{" "}
+                      {view === "team"
+                        ? "Abwesenheit eintragen"
+                        : "BWS hinzufügen"}
+                    </button>
+                  </>
+                )}
             </div>
           </section>
 
           {view === "training" && (
+            <>
+              <div className="learning-grid">
+                <section
+                  className="glass training-card"
+                  aria-labelledby="training-title"
+                >
+                  <span className="training-icon">
+                    <GraduationCap size={27} />
+                  </span>
+                  <div>
+                    <div className="eyebrow">LERNPLATTFORM</div>
+                    <h2 id="training-title">ARAG LearnSpot</h2>
+                    <p>
+                      Öffne deine Weiterbildungen und Lerninhalte im ARAG
+                      LearnSpot.
+                    </p>
+                    <a
+                      className="primary training-link"
+                      href={learnSpotUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      LearnSpot öffnen{" "}
+                      <ExternalLink size={17} aria-hidden="true" />
+                    </a>
+                  </div>
+                </section>
+                <section
+                  className="glass training-card"
+                  aria-labelledby="quiz-title"
+                >
+                  <span className="training-icon">
+                    <ListChecks size={27} />
+                  </span>
+                  <div>
+                    <div className="eyebrow">WISSEN TESTEN</div>
+                    <h2 id="quiz-title">InsureQuiz</h2>
+                    <p>
+                      Sechs kurze Fragen zu Versicherungsgrundlagen mit
+                      sofortiger Erklärung.
+                    </p>
+                    <button
+                      className="primary training-link"
+                      onClick={() => selectView("quiz")}
+                    >
+                      Quiz öffnen <ChevronRight size={17} aria-hidden="true" />
+                    </button>
+                  </div>
+                </section>
+              </div>
+              <TrainingDocuments userId={data.userId} demo={demo} />
+            </>
+          )}
+          {view === "quiz" && <InsureQuiz />}
+          {view === "cancellations" && <InsurerDirectory />}
+          {(view === "commissions" || view === "offers") && (
             <section
-              className="glass training-card"
-              aria-labelledby="training-title"
+              className="glass workspace-placeholder"
+              aria-labelledby="placeholder-title"
             >
               <span className="training-icon">
-                <GraduationCap size={27} />
+                {view === "commissions" ? (
+                  <TrendingUp size={27} />
+                ) : (
+                  <ScrollText size={27} />
+                )}
               </span>
               <div>
-                <div className="eyebrow">LERNNPLATTFORM</div>
-                <h2 id="training-title">ARAG LearnSpot</h2>
+                <div className="eyebrow">IN VORBEREITUNG</div>
+                <h2 id="placeholder-title">
+                  {view === "commissions"
+                    ? "Provisionsübersicht"
+                    : "Angebotsmanager"}
+                </h2>
                 <p>
-                  Öffne deine Weiterbildungen und Lerninhalte im ARAG LearnSpot.
+                  {view === "commissions"
+                    ? "Hier entsteht deine Übersicht über Provisionsabrechnungen und Auszahlungen."
+                    : "Hier entsteht dein zentraler Bereich für Angebote und ihren Bearbeitungsstand."}
                 </p>
-                <a
-                  className="primary training-link"
-                  href={learnSpotUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  LearnSpot öffnen <ExternalLink size={17} aria-hidden="true" />
-                </a>
               </div>
             </section>
           )}
@@ -1532,6 +1693,7 @@ export default function Dashboard({
                 members={data.calendarMembers}
                 entries={data.calendarEntries}
                 currentUserId={data.userId}
+                canManageCalendar={data.canManageCalendar}
                 openFormSignal={calendarOpenSignal}
                 onCreate={async (input: TeamCalendarInput) => {
                   if (demo) {
@@ -1609,8 +1771,17 @@ export default function Dashboard({
                   </div>
                   <div className="team-table-actions">
                     <span className="pill">
-                      {demo ? "Beispieldaten" : "Alle 15 Sek. aktualisiert"}
+                      {demo ? "Beispieldaten" : "Beim Öffnen aktualisiert"}
                     </span>
+                    {!demo && (
+                      <button
+                        className="team-share-button"
+                        type="button"
+                        onClick={() => router.refresh()}
+                      >
+                        Aktualisieren
+                      </button>
+                    )}
                     <button
                       className="team-share-button"
                       type="button"
@@ -1850,7 +2021,7 @@ export default function Dashboard({
             <span>
               {demo
                 ? "Interaktive Vorschau"
-                : "Teamwerte werden automatisch aktualisiert"}
+                : "Teamwerte beim Öffnen und nach eigenen Änderungen aktualisiert"}
             </span>
           </footer>
         </main>
@@ -1859,7 +2030,7 @@ export default function Dashboard({
         className="mobile-nav backdrop-blur-xl"
         aria-label="Mobile Navigation"
       >
-        {nav.map((item) => (
+        {nav.slice(0, 4).map((item) => (
           <button
             key={item.id}
             className={view === item.id ? "active" : ""}
@@ -1874,6 +2045,17 @@ export default function Dashboard({
           <Plus size={23} />
           <span>Erfassen</span>
         </button>
+        {nav.slice(4).map((item) => (
+          <button
+            key={item.id}
+            className={view === item.id ? "active" : ""}
+            onClick={() => selectView(item.id)}
+            aria-current={view === item.id ? "page" : undefined}
+          >
+            <item.icon size={21} />
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
       {message && (
         <div className="toast glass" role="status">
@@ -2090,8 +2272,9 @@ export default function Dashboard({
             <h3>Dein Team</h3>
             <p>
               Deine Einzelabschlüsse bleiben privat. Das Team sieht Namen,
-              Monatsziele und aggregierte BWS. Die Rangliste wird alle 15
-              Sekunden und nach deinen Änderungen aktualisiert.
+              Monatsziele und aggregierte BWS. Die Rangliste aktualisiert sich
+              nach deinen Änderungen und wenn du zur App zurückkehrst. Du
+              kannst sie auch mit „Aktualisieren“ neu laden.
             </p>
             <h3>Agenturziel & Tagessieg</h3>
             <p>
@@ -2100,7 +2283,8 @@ export default function Dashboard({
               Tages-BWS und Tagessieg zeigen die erfassten BWS mit dem heutigen
               Abschlussdatum in Berlin, unabhängig vom ausgewählten Monat. Bei
               Gleichstand teilen sich die Führenden den Tagessieg. Der Stand
-              wird bis Tagesende laufend aktualisiert.
+              wird nach Einträgen, beim Zurückkehren zur App und über
+              „Aktualisieren“ neu geladen.
             </p>
             <h3>Dein Zugang</h3>
             <p>

@@ -1,0 +1,236 @@
+.panel {
+  color: #eef4ff;
+  border: 1px solid #ffffff1c;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #17253b, #101a2b);
+  padding: 24px;
+  box-shadow: 0 18px 42px #0003;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.heading h2 {
+  font-size: 22px;
+  letter-spacing: -0.035em;
+  margin: 3px 0 5px;
+}
+.heading p:not(.eyebrow) {
+  margin: 0;
+  color: #aebed2;
+  font-size: 13px;
+}
+.eyebrow {
+  color: #7eb5ff;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-size: 11px;
+  font-weight: 700;
+  margin: 0;
+}
+.searchLabel {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #ffffff2b;
+  border-radius: 10px;
+  color: #f1f6ff;
+  background: #0a1425;
+  font: inherit;
+  font-size: 14px;
+}
+.input:focus {
+  outline: 2px solid #5aa1ff;
+  outline-offset: 2px;
+}
+.input::placeholder {
+  color: #8193aa;
+}
+.hint {
+  color: #9cafc7;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 10px 0 18px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid #ffffff17;
+  border-radius: 14px;
+  background: #ffffff08;
+}
+.item h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.item address {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-style: normal;
+  color: #ccdaec;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.item a {
+  color: #93c4ff;
+  text-decoration: none;
+}
+.item a:hover {
+  text-decoration: underline;
+}
+.source {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 12px;
+}
+.empty {
+  color: #aebed2;
+  font-size: 14px;
+  margin: 14px 0 0;
+}
+.form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #ffffff1b;
+  border-radius: 14px;
+  background: #ffffff08;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.form label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.formFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #9cafc7;
+  font-size: 12px;
+}
+.button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid #5799ef;
+  border-radius: 9px;
+  color: white;
+  background: #1761ba;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button:hover:not(:disabled) {
+  background: #2375d5;
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.error {
+  color: #ffc2c2;
+  font-size: 13px;
+}
+.notice {
+  color: #b0efc9;
+  font-size: 13px;
+}
+.listHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.listHeader button {
+  border: 0;
+  background: none;
+  color: #91c4ff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.docList {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 10px;
+}
+.docList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #ffffff1b;
+  border-radius: 12px;
+  background: #ffffff08;
+}
+.docList strong {
+  font-size: 14px;
+}
+.docList p {
+  margin: 5px 0;
+  color: #b8c8da;
+  font-size: 13px;
+}
+.docList small {
+  display: block;
+  margin-top: 7px;
+  color: #91a5bd;
+  font-size: 11px;
+}
+@media (max-width: 640px) {
+  .panel {
+    padding: 18px;
+  }
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+  .docList li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .docList .button {
+    align-self: flex-start;
+  }
+}
