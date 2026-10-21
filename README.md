@@ -62,6 +62,19 @@ Run `202610120001_team_calendar.sql` before publishing the Teamkalender. It crea
 
 Run `202610140001_calendar_roster.sql` after the initial calendar migration to include Moritz, Julia and Lilli. It changes only calendar membership and adds placeholder roster rows for colleagues without accounts; sales profiles and existing calendar entries are unchanged.
 
+Run `202610210001_calendar_partner_permissions.sql` next. It corrects the displayed name to **Yuliia Solianyk**, adds **Alina Dalga** to the calendar roster, and adds an operator-controlled calendar delegation flag. Every account starts with `can_manage_team_calendar = false`; ordinary partners can still create and delete only their own calendar entries. To authorize an identified active partner to enter events for other active partners, set the flag for that partner's verified Auth UUID in the trusted Supabase SQL Editor:
+
+```sql
+update public.profiles
+set can_manage_team_calendar = true
+where id = '<verified-auth-user-uuid>'::uuid and active = true
+returning full_name, can_manage_team_calendar;
+```
+
+Check that exactly the intended row is returned. Remove access by setting the flag to `false`. Placeholder calendar names without an active account cannot receive saved entries.
+
+Run `202610210002_training_documents.sql` before enabling live document uploads. It creates a private Supabase Storage bucket and a metadata table. Active team members can view and upload PDFs (up to 10 MB); uploads are checked in the browser and server, and downloads use short-lived signed links. Do not upload customer records or confidential personal data to this shared team library. The Vorversicherer directory and InsureQuiz ship with locally bundled content and need no external API or mail server. Contact addresses are linked to insurer sources and should be checked against the contract before a cancellation is sent.
+
 1. Create a GitHub repository and push this project, including `package-lock.json`. Do not commit `.env.local`.
 2. Import the repository in Vercel. Framework: **Next.js**. Use Node.js 24.x, install command `npm ci`, build command `npm run build`, and the default Next.js output directory.
 3. Add the two Supabase environment variables for Production (and your staging credentials for Preview if needed). Deploy.

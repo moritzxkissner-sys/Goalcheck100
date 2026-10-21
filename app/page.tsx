@@ -33,7 +33,7 @@ export default async function Home({
   if (!user) redirect("/login");
   const { data: profile, error: profileError } = await db
     .from("profiles")
-    .select("full_name,active")
+    .select("full_name,active,can_manage_team_calendar")
     .eq("id", user.id)
     .single();
   if (profileError || !profile?.active) redirect("/login?notice=inactive");
@@ -93,22 +93,30 @@ export default async function Home({
       if (page.data.length < 500) return { data: rows, error: null };
     }
   }
-  const [entries, cancellations, fixedCosts, goal, team, daily, calendarMembers, calendar] =
-    await Promise.all([
-      loadEntries(),
-      loadCancellations(),
-      loadFixedCosts(),
-      db
-        .from("monthly_goals")
-        .select("target")
-        .eq("user_id", user.id)
-        .eq("month", start)
-        .maybeSingle(),
-      db.rpc("team_leaderboard", { selected_month: start }),
-      db.rpc("team_daily_leaderboard"),
-      db.rpc("team_calendar_members"),
-      loadTeamCalendarMonth(currentMonth()),
-    ]);
+  const [
+    entries,
+    cancellations,
+    fixedCosts,
+    goal,
+    team,
+    daily,
+    calendarMembers,
+    calendar,
+  ] = await Promise.all([
+    loadEntries(),
+    loadCancellations(),
+    loadFixedCosts(),
+    db
+      .from("monthly_goals")
+      .select("target")
+      .eq("user_id", user.id)
+      .eq("month", start)
+      .maybeSingle(),
+    db.rpc("team_leaderboard", { selected_month: start }),
+    db.rpc("team_daily_leaderboard"),
+    db.rpc("team_calendar_members"),
+    loadTeamCalendarMonth(currentMonth()),
+  ]);
   if (
     entries.error ||
     cancellations.error ||
@@ -151,6 +159,7 @@ export default async function Home({
           amount: Number(cost.amount),
         })) as FixedCost[],
         calendarMembers: (calendarMembers.data ?? []) as TeamCalendarMember[],
+        canManageCalendar: profile.can_manage_team_calendar,
         calendarEntries: calendar.entries,
         partners: (team.data ?? []).map((p: Partner) => ({
           ...p,

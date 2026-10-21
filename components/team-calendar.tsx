@@ -25,6 +25,7 @@ export type TeamCalendarProps = {
   members: TeamCalendarMember[];
   entries: TeamCalendarEntry[];
   currentUserId: string;
+  canManageCalendar: boolean;
   onCreate: (input: TeamCalendarInput) => Promise<{ error?: string }>;
   onDelete: (id: string) => Promise<{ error?: string }>;
   onLoadMonth: (month: string) => Promise<TeamCalendarEntry[]>;
@@ -102,6 +103,7 @@ export default function TeamCalendar({
   members,
   entries,
   currentUserId,
+  canManageCalendar,
   onCreate,
   onDelete,
   onLoadMonth,
@@ -179,11 +181,16 @@ export default function TeamCalendar({
     event.preventDefault();
     setError("");
     setSuccess("");
-    if (!members.some((member) => member.id === currentUserId)) {
-      setError("Dein Konto ist derzeit nicht in der Kalenderliste.");
+    const selectedMember = members.find(
+      (member) => member.id === selectedMemberId,
+    );
+    if (!selectedMember || selectedMember.can_receive_entries === false) {
+      setError(
+        "Dieser Mitarbeiter kann derzeit keine Kalendereinträge erhalten.",
+      );
       return;
     }
-    if (selectedMemberId !== currentUserId) {
+    if (selectedMemberId !== currentUserId && !canManageCalendar) {
       setError("Du kannst nur deine eigenen Abwesenheiten eintragen.");
       return;
     }
@@ -195,7 +202,7 @@ export default function TeamCalendar({
     let created = false;
     try {
       const result = await onCreate({
-        user_id: currentUserId,
+        user_id: selectedMemberId,
         starts_on: startsOn,
         ends_on: endsOn,
         reason,
@@ -354,7 +361,23 @@ export default function TeamCalendar({
                   <span className={styles.avatar}>
                     {avatar(member.full_name)}
                   </span>
-                  <span>{member.full_name}</span>
+                  {canManageCalendar && member.can_receive_entries !== false ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMemberId(member.id);
+                        formRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "center",
+                        });
+                      }}
+                      aria-label={`${member.full_name} für Kalendereintrag auswählen`}
+                    >
+                      {member.full_name}
+                    </button>
+                  ) : (
+                    <span>{member.full_name}</span>
+                  )}
                   {member.id === currentUserId && <small>Du</small>}
                 </div>
                 {allDays.map(({ date, day, weekday }) => (
@@ -473,7 +496,10 @@ export default function TeamCalendar({
                 <option
                   key={member.id}
                   value={member.id}
-                  disabled={member.id !== currentUserId}
+                  disabled={
+                    member.can_receive_entries === false ||
+                    (member.id !== currentUserId && !canManageCalendar)
+                  }
                 >
                   {member.full_name}
                   {member.id === currentUserId ? " (Du)" : ""}

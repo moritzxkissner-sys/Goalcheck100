@@ -198,10 +198,15 @@ export async function createTeamCalendarEntry(input: unknown) {
         error: "Bitte prüfe Mitarbeiter, Zeitraum, Grund und Kommentar.",
       };
     const { db, user } = await member();
-    if (parsed.data.user_id !== user.id)
-      return { error: "Du kannst nur eigene Termine eintragen." };
+    if (parsed.data.user_id !== user.id) {
+      const { data: allowed, error: permissionError } = await db.rpc(
+        "can_manage_team_calendar",
+      );
+      if (permissionError || !allowed)
+        return { error: "Du kannst nur eigene Termine eintragen." };
+    }
     const { error } = await db.from("team_calendar_entries").insert({
-      user_id: user.id,
+      user_id: parsed.data.user_id,
       starts_on: parsed.data.starts_on,
       ends_on: parsed.data.ends_on,
       reason: parsed.data.reason,
