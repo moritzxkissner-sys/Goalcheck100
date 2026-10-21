@@ -12,13 +12,13 @@ const ids = Array.from(
   (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
 );
 
-test("calendar member filter only excludes Alina's name variants", () => {
+test("calendar member filter includes Alina and the corrected partner name", () => {
   for (const name of ["Alina Dalga", "ALINA DALGAR"]) {
-    assert.equal(isCalendarMemberName(name), false, name);
+    assert.equal(isCalendarMemberName(name), true, name);
   }
   for (const name of [
     "Moritz Kissner",
-    "Julia Soljanik",
+    "Yuliia Solianyk",
     "Lilli Fischer",
     "Lilly Fischer",
   ]) {
@@ -28,13 +28,13 @@ test("calendar member filter only excludes Alina's name variants", () => {
     filterCalendarMembers([
       { id: ids[0], full_name: "Steven Prell" },
       { id: ids[1], full_name: "Moritz Kissner" },
-      { id: ids[2], full_name: "Julia Soljanik" },
+      { id: ids[2], full_name: "Yuliia Solianyk" },
     ]).map(({ full_name }) => full_name),
-    ["Steven Prell", "Moritz Kissner", "Julia Soljanik"],
+    ["Steven Prell", "Moritz Kissner", "Yuliia Solianyk"],
   );
 });
 
-test("calendar migration enforces active team visibility and owner-only writes", async () => {
+test("calendar migration enforces active team visibility and delegated insert rights", async () => {
   const db = new PGlite();
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role;
@@ -62,7 +62,7 @@ test("calendar migration enforces active team visibility and owner-only writes",
       "Steven Prell",
       "Berin Pretzer",
       "Vanessa Holzinger",
-      "Yuliia Solianyk",
+      "Julia Soljanik",
       "Sameena Schlegelmilch",
       "Johannes Bubb",
       "Moritz Kissner",
@@ -80,6 +80,23 @@ test("calendar migration enforces active team visibility and owner-only writes",
     await db.query("update public.profiles set active = true where id <> $1", [
       ids[9],
     ]);
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610210001_calendar_partner_permissions.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    const correctedNames = await db.query<{ full_name: string }>(
+      "select full_name from public.profiles where id in ($1, $2) order by full_name",
+      [ids[3], ids[7]],
+    );
+    assert.deepEqual(
+      correctedNames.rows.map((row) => row.full_name),
+      ["Alina Dalga", "Yuliia Solianyk"],
+    );
 
     async function asUser<T>(id: string, operation: () => Promise<T>) {
       await db.exec("begin; set local role authenticated;");
@@ -107,16 +124,17 @@ test("calendar migration enforces active team visibility and owner-only writes",
         "Steven Prell",
         "Berin Pretzer",
         "Vanessa Holzinger",
-        "Julia Soljanik",
+        "Yuliia Solianyk",
         "Sameena Schlegelmilch",
         "Johannes Bubb",
         "Moritz Kissner",
+        "Alina Dalga",
         "Lilli Fischer",
       ].sort(),
     );
     assert.equal(
       members.rows.length,
-      8,
+      9,
       "linked members must not receive duplicate placeholder rows",
     );
 
@@ -129,7 +147,7 @@ test("calendar migration enforces active team visibility and owner-only writes",
         "select * from public.team_calendar_members()",
       ),
     );
-    for (const name of ["Julia Soljanik", "Lilli Fischer"]) {
+    for (const name of ["Yuliia Solianyk", "Lilli Fischer"]) {
       assert.equal(
         standbyMembers.rows.filter((member) => member.full_name === name)
           .length,
@@ -173,6 +191,54 @@ test("calendar migration enforces active team visibility and owner-only writes",
         ),
       ),
       /row-level security/,
+    );
+    await assert.rejects(
+      asUser(ids[1], () =>
+        db.query(
+          "update public.profiles set can_manage_team_calendar = true where id = $1",
+          [ids[1]],
+        ),
+      ),
+      /permission denied/,
+    );
+    await db.query(
+      "update public.profiles set can_manage_team_calendar = true where id = $1",
+      [ids[0]],
+    );
+    const delegated = await asUser(ids[0], () =>
+      db.query<{ id: string }>(
+        "insert into public.team_calendar_entries(user_id,starts_on,ends_on,reason) values ($1,'2026-10-17','2026-10-17','Homeoffice') returning id",
+        [ids[1]],
+      ),
+    );
+    assert.equal(delegated.rows.length, 1);
+    await assert.rejects(
+      asUser(ids[0], () =>
+        db.query(
+          "insert into public.team_calendar_entries(user_id,starts_on,ends_on,reason) values ($1,'2026-10-17','2026-10-17','Urlaub')",
+          [ids[9]],
+        ),
+      ),
+      /row-level security/,
+    );
+    await assert.rejects(
+      asUser(ids[0], () =>
+        db.query(
+          "insert into public.team_calendar_entries(user_id,starts_on,ends_on,reason) values ($1,'2026-10-17','2026-10-17','Urlaub')",
+          ["85f5c2d0-96a8-5db7-98a2-004020261014"],
+        ),
+      ),
+      /row-level security/,
+    );
+    assert.equal(
+      (
+        await asUser(ids[0], () =>
+          db.query<{ allowed: boolean }>(
+            "select public.can_manage_team_calendar() as allowed",
+          ),
+        )
+      ).rows[0].allowed,
+      true,
     );
     assert.equal(
       (
