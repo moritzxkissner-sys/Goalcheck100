@@ -885,6 +885,7 @@ h3 {
   display: flex;
   flex-direction: column;
   z-index: 20;
+  overflow-y: auto;
 }
 .brand {
   display: flex;
@@ -966,6 +967,47 @@ h3 {
   color: #8fa9d0;
   font-size: 12px;
   border-radius: 0 8px 8px 0;
+}
+.sidebar-subnav {
+  display: grid;
+  gap: 2px;
+  margin-top: -5px;
+}
+.sidebar-subnav .sidebar-sublink {
+  width: calc(100% - 48px);
+  text-align: left;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: none;
+  cursor: pointer;
+}
+.sidebar-sublink.active {
+  color: #c9ddff;
+  background: #448cff1d;
+}
+.learning-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.learning-grid .training-card {
+  min-width: 0;
+  padding: 28px;
+}
+.workspace-placeholder {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+  max-width: 850px;
+  padding: clamp(24px, 4vw, 42px);
+}
+.workspace-placeholder h2 {
+  margin: 10px 0 8px;
+}
+.workspace-placeholder p {
+  color: #a9b6ca;
+  line-height: 1.6;
 }
 .sidebar-sublink:hover,
 .sidebar-sublink:focus-visible {
@@ -2549,8 +2591,10 @@ select:focus {
     bottom: 0;
     left: 0;
     right: 0;
-    justify-content: space-around;
+    justify-content: flex-start;
     align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
     padding: 10px 10px max(12px, env(safe-area-inset-bottom));
     background: #111722dc;
     border-top: 1px solid #809ac21a;
@@ -2560,7 +2604,7 @@ select:focus {
     border: 0;
     min-height: 47px;
     min-width: 0;
-    flex: 1 1 0;
+    flex: 0 0 76px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2575,6 +2619,9 @@ select:focus {
   }
   .training-card {
     gap: 16px;
+  }
+  .learning-grid {
+    grid-template-columns: 1fr;
   }
   .training-icon {
     width: 44px;
