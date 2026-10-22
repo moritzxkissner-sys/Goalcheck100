@@ -36,6 +36,11 @@
   font-size: 13px;
   font-weight: 650;
 }
+.directoryControls {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  gap: 12px;
+}
 .input {
   box-sizing: border-box;
   display: block;
@@ -61,6 +66,11 @@
   font-size: 12px;
   line-height: 1.5;
   margin: 10px 0 18px;
+}
+.resultCount {
+  color: #b8c8da;
+  font-size: 12px;
+  margin: 0 0 12px;
 }
 .grid {
   display: grid;
@@ -222,6 +232,9 @@
 @media (max-width: 640px) {
   .panel {
     padding: 18px;
+  }
+  .directoryControls {
+    grid-template-columns: 1fr;
   }
   .formRow {
     grid-template-columns: 1fr;
