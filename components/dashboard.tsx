@@ -1190,6 +1190,7 @@ export default function Dashboard({
                     </a>
                   </div>
                 </section>
+                <TrainingDocuments userId={data.userId} demo={demo} />
                 <section
                   className="glass training-card"
                   aria-labelledby="quiz-title"
@@ -1213,7 +1214,6 @@ export default function Dashboard({
                   </div>
                 </section>
               </div>
-              <TrainingDocuments userId={data.userId} demo={demo} />
             </>
           )}
           {view === "quiz" && <InsureQuiz />}
