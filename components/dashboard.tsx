@@ -81,6 +81,7 @@ import TeamCalendar from "@/components/team-calendar";
 import InsureQuiz from "@/components/insure-quiz";
 import TrainingDocuments from "@/components/training-documents";
 import InsurerDirectory from "@/components/insurer-directory";
+import OfferManager from "@/components/offer-manager";
 import type { TeamCalendarEntry, TeamCalendarInput } from "@/lib/team-calendar";
 
 const categoryIcons = {
@@ -1097,7 +1098,7 @@ export default function Dashboard({
                           : view === "commissions"
                             ? "Ein Platz für deine Provisionsübersicht."
                             : view === "offers"
-                              ? "Ein Platz für deine Angebote."
+                              ? "Angebote, Termine und Nachfassaktionen an einem Ort."
                               : view === "cancellations"
                                 ? "Kontaktwege für Kündigungen bei Vorversicherern."
                                 : "Abwesenheiten und Verfügbarkeiten im Überblick."}
@@ -1218,29 +1219,23 @@ export default function Dashboard({
           )}
           {view === "quiz" && <InsureQuiz />}
           {view === "cancellations" && <InsurerDirectory />}
-          {(view === "commissions" || view === "offers") && (
+          {view === "offers" && (
+            <OfferManager userId={data.userId} demo={demo} />
+          )}
+          {view === "commissions" && (
             <section
               className="glass workspace-placeholder"
               aria-labelledby="placeholder-title"
             >
               <span className="training-icon">
-                {view === "commissions" ? (
-                  <TrendingUp size={27} />
-                ) : (
-                  <ScrollText size={27} />
-                )}
+                <TrendingUp size={27} />
               </span>
               <div>
                 <div className="eyebrow">IN VORBEREITUNG</div>
-                <h2 id="placeholder-title">
-                  {view === "commissions"
-                    ? "Provisionsübersicht"
-                    : "Angebotsmanager"}
-                </h2>
+                <h2 id="placeholder-title">Provisionsübersicht</h2>
                 <p>
-                  {view === "commissions"
-                    ? "Hier entsteht deine Übersicht über Provisionsabrechnungen und Auszahlungen."
-                    : "Hier entsteht dein zentraler Bereich für Angebote und ihren Bearbeitungsstand."}
+                  Hier entsteht deine Übersicht über Provisionsabrechnungen und
+                  Auszahlungen.
                 </p>
               </div>
             </section>
@@ -2273,8 +2268,8 @@ export default function Dashboard({
             <p>
               Deine Einzelabschlüsse bleiben privat. Das Team sieht Namen,
               Monatsziele und aggregierte BWS. Die Rangliste aktualisiert sich
-              nach deinen Änderungen und wenn du zur App zurückkehrst. Du
-              kannst sie auch mit „Aktualisieren“ neu laden.
+              nach deinen Änderungen und wenn du zur App zurückkehrst. Du kannst
+              sie auch mit „Aktualisieren“ neu laden.
             </p>
             <h3>Agenturziel & Tagessieg</h3>
             <p>

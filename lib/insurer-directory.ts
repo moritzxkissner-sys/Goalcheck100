@@ -80,3 +80,34 @@ export const INSURER_CONTACTS: InsurerContact[] = [
 ];
 
 export const INSURER_CONTACTS_VERIFIED_ON = "2026-10-21";
+
+export type InsurerContactFilter = "all" | "email" | "phone";
+
+function normalizeSearch(value: string) {
+  return value
+    .toLocaleLowerCase("de-DE")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9+]+/g, " ")
+    .trim();
+}
+
+export function filterInsurerContacts(
+  contacts: readonly InsurerContact[],
+  query: string,
+  contactFilter: InsurerContactFilter,
+) {
+  const terms = normalizeSearch(query).split(/\s+/).filter(Boolean);
+  return contacts.filter((contact) => {
+    if (contactFilter === "email" && !contact.email) return false;
+    if (contactFilter === "phone" && !contact.phone) return false;
+    const searchable = normalizeSearch(
+      [contact.name, ...contact.address, contact.phone, contact.email]
+        .filter(Boolean)
+        .join(" "),
+    );
+    return terms.every((term) => searchable.includes(term));
+  });
+}
