@@ -9,7 +9,7 @@ const B = "00000000-0000-4000-8000-000000000002";
 const offerId = "00000000-0000-4000-8000-000000000010";
 const fileId = "00000000-0000-4000-8000-000000000011";
 
-test("offer input validates dates and private contact references", () => {
+test("offer input validates dates and direct recipients", () => {
   assert.equal(
     parseOfferInput({
       title: "A",
@@ -17,6 +17,23 @@ test("offer input validates dates and private contact references", () => {
       starts_at: "not-a-date",
     }),
     null,
+  );
+  assert.deepEqual(
+    parseOfferInput({
+      title: "Kalenderangebot",
+      customer_name: "Kundin",
+      starts_at: "2026-10-22T09:00:00Z",
+    }),
+    {
+      title: "Kalenderangebot",
+      customer_name: "Kundin",
+      starts_at: "2026-10-22T09:00:00.000Z",
+      notes: "",
+      recipient_email: null,
+      recipient_phone: null,
+      hubspot_contact_id: null,
+      superchat_contact_id: null,
+    },
   );
   assert.equal(
     parseOfferInput({
@@ -31,6 +48,8 @@ test("offer input validates dates and private contact references", () => {
       title: " Angebot ",
       customer_name: " Kundin ",
       starts_at: "2026-10-22T09:00:00.000Z",
+      recipient_email: " kunde@example.de ",
+      recipient_phone: "+491701234567",
       hubspot_contact_id: "123",
     }),
     {
@@ -38,9 +57,21 @@ test("offer input validates dates and private contact references", () => {
       customer_name: "Kundin",
       starts_at: "2026-10-22T09:00:00.000Z",
       notes: "",
+      recipient_email: "kunde@example.de",
+      recipient_phone: "+491701234567",
       hubspot_contact_id: "123",
       superchat_contact_id: null,
     },
+  );
+  assert.equal(
+    parseOfferInput({
+      title: "Angebot",
+      customer_name: "Kundin",
+      starts_at: "2026-10-22T09:00:00Z",
+      recipient_email: "kunde@example.de",
+      recipient_phone: "01701234567",
+    }),
+    null,
   );
 });
 

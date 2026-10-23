@@ -28,8 +28,15 @@ export async function GET() {
     .limit(2000);
   if (appointmentError)
     return offerError("Termine konnten nicht geladen werden.", 500);
+  const { data: deliveries, error: deliveryError } = await auth.db
+    .from("offer_deliveries")
+    .select("id,offer_id,channel,state,recipient,attempt_count,provider_message_id,last_error,requested_at,sent_at,delivered_at,read_at,failed_at,updated_at")
+    .order("requested_at", { ascending: false })
+    .limit(1000);
+  if (deliveryError)
+    return offerError("Versandstatus konnte nicht geladen werden.", 500);
   return Response.json(
-    { offers: data, appointments },
+    { offers: data, appointments, deliveries },
     { headers: offerHeaders },
   );
 }

@@ -4,6 +4,266 @@
   padding-bottom: 24px;
   color: #eef4ff;
 }
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #ffffff26;
+  padding-bottom: 8px;
+}
+.tabs button {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 11px 16px;
+  color: #a8bdd7;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tabs button:hover,
+.tabs button:focus-visible {
+  color: #fff;
+  background: #203a5b;
+}
+.tabs button.activeTab {
+  color: #fff;
+  background: #24588e;
+  border-color: #5da0e9;
+}
+.tabPanel {
+  display: grid;
+  gap: 20px;
+}
+.sendPanel,
+.statusPanel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #ffffff1c;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #18263ac9, #101723ed);
+  box-shadow: 0 18px 44px #0002;
+}
+.sendHeading,
+.statusHeading,
+.sendActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+.sendHeading > svg {
+  color: #83b6ff;
+}
+.readinessNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #c5964b7a;
+  border-radius: 10px;
+  color: #ffe3ae;
+  background: #a46b252b;
+}
+.readinessNotice > div {
+  display: grid;
+  gap: 3px;
+}
+.readinessNotice strong {
+  font-size: 12px;
+}
+.readinessNotice span {
+  color: #e4c9a1;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.readinessNotice button {
+  flex: 0 0 auto;
+  border: 1px solid #c5964b7a;
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: #ffe3ae;
+  background: #624317;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sendHeading h3,
+.statusHeading h3 {
+  margin: 5px 0;
+  font-size: 18px;
+}
+.sendHeading p,
+.sendActions p {
+  margin: 0;
+  color: #a9b8cd;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.sendForm {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+.sendFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.sendFields label {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: #d6e4f5;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sendFields input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid #ffffff30;
+  border-radius: 9px;
+  padding: 11px 12px;
+  color: #f3f7ff;
+  background: #0c1727;
+  font: inherit;
+  font-size: 13px;
+}
+.sendFields input:focus {
+  outline: 2px solid #4388dc;
+  outline-offset: 1px;
+}
+.sendFields small {
+  color: #94a7bd;
+  font-size: 11px;
+  font-weight: 400;
+}
+.sendDropZone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px dashed #4f8ed1;
+  border-radius: 12px;
+  color: #8ebaff;
+  background: #0c1b2b;
+}
+.sendDropZone.dragging {
+  border-color: #b5d7ff;
+  background: #18385b;
+}
+.sendDropZone > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+.sendDropZone strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e0edfc;
+  font-size: 13px;
+}
+.sendDropZone span {
+  color: #92a8c1;
+  font-size: 11px;
+}
+.sendActions p {
+  max-width: 600px;
+}
+.statusHeading {
+  margin-bottom: 18px;
+}
+.tableScroll {
+  overflow-x: auto;
+}
+.statusTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 850px;
+  text-align: left;
+  font-size: 12px;
+}
+.statusTable th {
+  padding: 12px 10px;
+  border-bottom: 1px solid #ffffff28;
+  color: #93abc7;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.statusTable td {
+  vertical-align: top;
+  padding: 14px 10px;
+  border-bottom: 1px solid #ffffff17;
+  color: #dce9f9;
+}
+.statusTable td > strong,
+.statusTable td > span,
+.statusTable td > small {
+  display: block;
+}
+.statusTable td > span,
+.statusTable td > small {
+  margin-top: 4px;
+  color: #9cafc6;
+}
+.statusTable td a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #9cc8ff;
+  overflow-wrap: anywhere;
+}
+.deliveryCell {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+.deliveryBadge {
+  display: inline-block;
+  border-radius: 6px;
+  padding: 4px 7px;
+  color: #b5d7ff;
+  background: #347ac040;
+  font-size: 11px;
+  font-weight: 700;
+}
+.deliveryFailed {
+  color: #ffc4c4;
+  background: #b8424240;
+}
+.deliveryUnknown {
+  color: #ffe1a8;
+  background: #a4782940;
+}
+.deliveryReason {
+  max-width: 190px;
+  color: #ffbaba;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.retry {
+  border: 1px solid #7caee9;
+  border-radius: 7px;
+  padding: 5px 7px;
+  color: #cce3ff;
+  background: #21558b;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.retry:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.muted {
+  color: #91a5bd;
+}
 .intro,
 .calendar,
 .offers {
@@ -638,6 +898,22 @@
   }
 }
 @media (max-width: 680px) {
+  .readinessNotice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .sendFields {
+    grid-template-columns: 1fr;
+  }
+  .sendActions,
+  .sendDropZone {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .sendPanel,
+  .statusPanel {
+    padding: 17px;
+  }
   .intro,
   .listHeader,
   .offerFooter {
