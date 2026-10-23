@@ -10,6 +10,8 @@ export type Offer = {
   customer_name: string;
   starts_at: string;
   notes: string;
+  recipient_email: string | null;
+  recipient_phone: string | null;
   hubspot_contact_id: string | null;
   superchat_contact_id: string | null;
   pdf_name: string | null;
@@ -35,7 +37,7 @@ export const OFFER_APPOINTMENT_COLUMNS =
   "id,offer_id,owner_id,title,starts_at,ends_at,notes,created_at,updated_at";
 
 export const OFFER_COLUMNS =
-  "id,owner_id,title,customer_name,starts_at,notes,hubspot_contact_id,superchat_contact_id,pdf_name,pdf_size,status,created_at,updated_at";
+  "id,owner_id,title,customer_name,starts_at,notes,recipient_email,recipient_phone,hubspot_contact_id,superchat_contact_id,pdf_name,pdf_size,status,created_at,updated_at";
 
 export function parseOfferInput(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -44,6 +46,14 @@ export function parseOfferInput(value: unknown) {
   const customer_name =
     typeof input.customer_name === "string" ? input.customer_name.trim() : "";
   const notes = typeof input.notes === "string" ? input.notes.trim() : "";
+  const recipient_email =
+    typeof input.recipient_email === "string"
+      ? input.recipient_email.trim() || null
+      : null;
+  const recipient_phone =
+    typeof input.recipient_phone === "string"
+      ? input.recipient_phone.trim() || null
+      : null;
   const starts_at = typeof input.starts_at === "string" ? input.starts_at : "";
   const hubspot_contact_id =
     typeof input.hubspot_contact_id === "string"
@@ -60,6 +70,10 @@ export function parseOfferInput(value: unknown) {
     !customer_name ||
     customer_name.length > 120 ||
     notes.length > 1000 ||
+    (recipient_email !== null &&
+      (recipient_email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient_email))) ||
+    (recipient_phone !== null && !/^\+[1-9]\d{6,14}$/.test(recipient_phone)) ||
     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(
       starts_at,
     ) ||
@@ -75,6 +89,8 @@ export function parseOfferInput(value: unknown) {
     customer_name,
     starts_at: date.toISOString(),
     notes,
+    recipient_email,
+    recipient_phone,
     hubspot_contact_id,
     superchat_contact_id,
   };

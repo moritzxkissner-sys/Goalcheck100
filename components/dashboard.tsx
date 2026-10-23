@@ -1220,7 +1220,12 @@ export default function Dashboard({
           {view === "quiz" && <InsureQuiz />}
           {view === "cancellations" && <InsurerDirectory />}
           {view === "offers" && (
-            <OfferManager userId={data.userId} demo={demo} />
+            <OfferManager
+              userId={data.userId}
+              ownerName={data.name}
+              ownerEmail={data.email}
+              demo={demo}
+            />
           )}
           {view === "commissions" && (
             <section
