@@ -1,0 +1,160 @@
+.dashboard {
+  display: grid;
+  gap: 22px;
+  margin-bottom: 24px;
+  color: #eef5ff;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: start;
+}
+.eyebrow {
+  color: #82b5ff;
+  letter-spacing: 0.15em;
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+.heading h2 {
+  margin: 7px 0;
+  font-size: clamp(24px, 3vw, 32px);
+}
+.heading p,
+.card p,
+.empty {
+  color: #9eafc7;
+}
+.overall {
+  min-width: 210px;
+  padding: 17px 20px;
+  background: #13243b;
+  border: 1px solid #4a8fff35;
+  border-radius: 14px;
+  display: grid;
+  gap: 5px;
+}
+.overall strong {
+  color: #72acff;
+  font-size: 25px;
+}
+.overall span {
+  color: #aebdd2;
+  font-size: 12px;
+}
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filters button,
+.editButton,
+.editor button {
+  color: #bdd3f0;
+  background: #14243a;
+  border: 1px solid #4b8aff3d;
+  border-radius: 10px;
+  padding: 9px 13px;
+  cursor: pointer;
+}
+.filters button[aria-pressed="true"],
+.editor button:first-of-type {
+  color: white;
+  background: #1769d6;
+}
+.group h3 {
+  margin: 5px 0 15px;
+  font-size: 18px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.card {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 15px;
+  border: 1px solid #4a8fff32;
+  background: linear-gradient(130deg, #14253bd6, #111925bb);
+}
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #72acff;
+  background: #448cff25;
+  border-radius: 9px;
+}
+.status {
+  color: #a9c9fa;
+  font-size: 11px;
+}
+.card h4 {
+  margin: 19px 0 6px;
+  font-size: 15px;
+}
+.card p {
+  margin: 0 0 18px;
+  font-size: 12px;
+}
+.bar {
+  height: 7px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff1b;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #0a84ff, #65b2ff);
+  border-radius: inherit;
+}
+.editButton {
+  margin-top: 16px;
+  font-size: 12px;
+}
+.editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin-top: 15px;
+}
+.editor label {
+  display: grid;
+  gap: 4px;
+  color: #aebdd2;
+  font-size: 11px;
+}
+.editor input {
+  width: 70px;
+  color: white;
+  background: #0c1727;
+  border: 1px solid #ffffff30;
+  border-radius: 7px;
+  padding: 8px;
+}
+.editor button {
+  font-size: 11px;
+}
+.error {
+  color: #ff9ba6;
+}
+@media (max-width: 700px) {
+  .heading {
+    flex-direction: column;
+  }
+  .overall {
+    width: 100%;
+  }
+}
+

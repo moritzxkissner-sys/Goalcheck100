@@ -29,12 +29,16 @@ export type OfferAppointment = {
   starts_at: string;
   ends_at: string | null;
   notes: string;
+  due_date: string;
+  status: "pending" | "completed" | "rescheduled";
+  assigned_to: string;
+  remind_note: string;
   created_at: string;
   updated_at: string;
 };
 
 export const OFFER_APPOINTMENT_COLUMNS =
-  "id,offer_id,owner_id,title,starts_at,ends_at,notes,created_at,updated_at";
+  "id,offer_id,owner_id,title,starts_at,ends_at,notes,due_date,status,assigned_to,remind_note,created_at,updated_at";
 
 export const OFFER_COLUMNS =
   "id,owner_id,title,customer_name,starts_at,notes,recipient_email,recipient_phone,hubspot_contact_id,superchat_contact_id,pdf_name,pdf_size,status,created_at,updated_at";
@@ -113,6 +117,9 @@ export function parseOfferAppointmentInput(value: unknown) {
   const input = value as Record<string, unknown>;
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const notes = typeof input.notes === "string" ? input.notes.trim() : "";
+  const remind_note =
+    typeof input.remind_note === "string" ? input.remind_note.trim() : "";
+  const status = input.status ?? "pending";
   const starts_at = typeof input.starts_at === "string" ? input.starts_at : "";
   const ends_at =
     typeof input.ends_at === "string" && input.ends_at ? input.ends_at : null;
@@ -124,6 +131,8 @@ export function parseOfferAppointmentInput(value: unknown) {
     !title ||
     title.length > 120 ||
     notes.length > 500 ||
+    remind_note.length > 500 ||
+    !["pending", "completed", "rescheduled"].includes(String(status)) ||
     !timestamp.test(starts_at) ||
     !Number.isFinite(start.getTime()) ||
     start.getUTCFullYear() < 2000 ||
@@ -141,5 +150,9 @@ export function parseOfferAppointmentInput(value: unknown) {
     starts_at: start.toISOString(),
     ends_at: end?.toISOString() ?? null,
     notes,
+    due_date: start.toISOString(),
+    status: status as OfferAppointment["status"],
+    remind_note,
   };
 }
+

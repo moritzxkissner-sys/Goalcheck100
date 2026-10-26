@@ -45,6 +45,8 @@ type AppointmentForm = {
   starts_at: string;
   ends_at: string;
   notes: string;
+  status: OfferAppointment["status"];
+  remind_note: string;
 };
 type AppointmentEditor = { offer: Offer; appointment?: OfferAppointment };
 type SendForm = {
@@ -258,6 +260,8 @@ export default function OfferManager({
     starts_at: "",
     ends_at: "",
     notes: "",
+    status: "pending",
+    remind_note: "",
   });
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -544,12 +548,16 @@ export default function OfferManager({
               ? localInputDate(appointment.ends_at)
               : "",
             notes: appointment.notes ?? "",
+            status: appointment.status,
+            remind_note: appointment.remind_note ?? "",
           }
         : {
             title: "Nachfassen",
             starts_at: `${selectedDay ?? dayKeyFormatter.format(new Date())}T09:00`,
             ends_at: "",
             notes: "",
+            status: "pending",
+            remind_note: "",
           },
     );
   }
@@ -634,6 +642,41 @@ export default function OfferManager({
         cause instanceof Error
           ? cause.message
           : "Termin konnte nicht gelöscht werden.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function completeAppointment(appointment: OfferAppointment) {
+    if (demo || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await parseResponse(
+        await fetch(
+          `/api/offers/${appointment.offer_id}/appointments/${appointment.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: appointment.title,
+              starts_at: appointment.starts_at,
+              ends_at: appointment.ends_at,
+              notes: appointment.notes,
+              remind_note: appointment.remind_note,
+              status: "completed",
+            }),
+          },
+        ),
+      );
+      setNotice("Wiedervorlage erledigt.");
+      await load(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Wiedervorlage konnte nicht geändert werden.",
       );
     } finally {
       setBusy(false);
@@ -814,6 +857,17 @@ export default function OfferManager({
     list.push(appointment);
     appointmentsByOffer.set(appointment.offer_id, list);
   }
+
+  const today = dayKeyFormatter.format(new Date());
+  const nextWeek = dayKeyFormatter.format(
+    new Date(new Date(`${today}T12:00:00Z`).getTime() + 7 * 86400000),
+  );
+  const dueFollowUps = appointments
+    .filter(
+      (item) =>
+        item.status !== "completed" && dayKey(item.due_date) <= nextWeek,
+    )
+    .sort((a, b) => a.due_date.localeCompare(b.due_date));
   const offerHasDate = (offer: Offer, prefix: string) =>
     dayKey(offer.starts_at).startsWith(prefix) ||
     (appointmentsByOffer.get(offer.id) ?? []).some((appointment) =>
@@ -875,6 +929,62 @@ export default function OfferManager({
           {notice}
         </p>
       )}
+      <section className={styles.followUps} aria-labelledby="follow-up-heading">
+        <div className={styles.followUpHeading}>
+          <div>
+            <span className={styles.eyebrow}>NACHFASSAKTIONEN</span>
+            <h3 id="follow-up-heading">Follow-up-Kalender</h3>
+            <p>
+              Fällige Wiedervorlagen für heute und die nächsten sieben Tage.
+            </p>
+          </div>
+          <span>{dueFollowUps.length} offen</span>
+        </div>
+        {dueFollowUps.length === 0 ? (
+          <p className={styles.empty}>Keine offenen Wiedervorlagen.</p>
+        ) : (
+          <div className={styles.followUpList}>
+            {dueFollowUps.map((item) => {
+              const offer = offers.find((entry) => entry.id === item.offer_id);
+              return (
+                <div className={styles.followUpRow} key={item.id}>
+                  <div>
+                    <strong>
+                      {item.title} · {offer?.customer_name ?? "Angebot"}
+                    </strong>
+                    <span>
+                      {dayKey(item.due_date) < today
+                        ? "Überfällig · "
+                        : dayKey(item.due_date) === today
+                          ? "Heute · "
+                          : ""}
+                      {dateTimeLabel(item.due_date)} ·{" "}
+                      {item.status === "rescheduled" ? "Verschoben" : "Offen"}
+                    </span>
+                    {item.remind_note && <small>{item.remind_note}</small>}
+                  </div>
+                  <div className={styles.followUpActions}>
+                    <button
+                      disabled={demo || busy || !offer}
+                      onClick={() => {
+                        if (offer) openAppointmentEditor(offer, item);
+                      }}
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      disabled={demo || busy}
+                      onClick={() => void completeAppointment(item)}
+                    >
+                      Erledigt
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
       <div
         className={styles.tabs}
         role="tablist"
@@ -1271,6 +1381,16 @@ export default function OfferManager({
                                     {appointment.notes && (
                                       <small>{appointment.notes}</small>
                                     )}
+                                    <small>
+                                      {appointment.status === "completed"
+                                        ? "Erledigt"
+                                        : appointment.status === "rescheduled"
+                                          ? "Verschoben"
+                                          : "Offen"}
+                                      {appointment.remind_note
+                                        ? ` · ${appointment.remind_note}`
+                                        : ""}
+                                    </small>
                                   </div>
                                   <div className={styles.appointmentActions}>
                                     <button
@@ -1493,6 +1613,7 @@ export default function OfferManager({
                     <th>Versand angenommen am</th>
                     <th>E-Mail</th>
                     <th>Superchat</th>
+                    <th>Wiedervorlage</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1585,6 +1706,22 @@ export default function OfferManager({
                               </td>
                             );
                           })}
+                          <td>
+                            {offer.status === "sent" ? (
+                              <button
+                                type="button"
+                                className={styles.retry}
+                                disabled={demo || busy}
+                                onClick={() => openAppointmentEditor(offer)}
+                              >
+                                <Plus size={14} /> Nachfassen planen
+                              </button>
+                            ) : (
+                              <span className={styles.muted}>
+                                Nach Versand verfügbar
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -1848,6 +1985,37 @@ export default function OfferManager({
                   placeholder="Gesprächsziel oder nächster Schritt"
                 />
               </label>
+              <label>
+                Wiedervorlage-Notiz <span>(optional)</span>
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  value={appointmentForm.remind_note}
+                  onChange={(event) =>
+                    setAppointmentForm({
+                      ...appointmentForm,
+                      remind_note: event.target.value,
+                    })
+                  }
+                  placeholder="Was soll beim Nachfassen besprochen werden?"
+                />
+              </label>
+              <label>
+                Status
+                <select
+                  value={appointmentForm.status}
+                  onChange={(event) =>
+                    setAppointmentForm({
+                      ...appointmentForm,
+                      status: event.target.value as OfferAppointment["status"],
+                    })
+                  }
+                >
+                  <option value="pending">Offen</option>
+                  <option value="rescheduled">Verschoben</option>
+                  <option value="completed">Erledigt</option>
+                </select>
+              </label>
               {error && (
                 <p className={styles.error} role="alert">
                   {error}
@@ -1877,3 +2045,4 @@ export default function OfferManager({
     </div>
   );
 }
+

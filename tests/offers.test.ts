@@ -94,7 +94,26 @@ test("appointment input requires an ordered time range", () => {
       starts_at: "2026-10-22T09:00:00.000Z",
       ends_at: null,
       notes: "",
+      due_date: "2026-10-22T09:00:00.000Z",
+      status: "pending",
+      remind_note: "",
     },
+  );
+  assert.equal(
+    parseOfferAppointmentInput({
+      title: "Follow-up",
+      starts_at: "2026-10-22T09:00:00Z",
+      status: "invalid",
+    }),
+    null,
+  );
+  assert.equal(
+    parseOfferAppointmentInput({
+      title: "Follow-up",
+      starts_at: "2026-10-22T09:00:00Z",
+      remind_note: "a".repeat(501),
+    }),
+    null,
   );
 });
 
@@ -165,7 +184,9 @@ test("offer migration protects owners and atomically prepares dispatch", async (
         [offerId, A],
       ),
     );
-    const ownAppointments = await asUser(A, () => db.query("select id from public.offer_appointments"));
+    const ownAppointments = await asUser(A, () =>
+      db.query("select id from public.offer_appointments"),
+    );
     assert.equal(ownAppointments.rows.length, 2);
     const hiddenAppointments = await asUser(B, () =>
       db.query("select id from public.offer_appointments"),
@@ -231,7 +252,48 @@ test("offer migration protects owners and atomically prepares dispatch", async (
       ),
     );
     assert.equal(current.rows[0].status, "pending_connection");
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202610260001_followups_learning.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    const migrated = await asUser(A, () =>
+      db.query<{ due_date: string; assigned_to: string; status: string }>(
+        "select due_date,assigned_to,status from public.offer_appointments order by starts_at",
+      ),
+    );
+    assert.equal(migrated.rows.length, 2);
+    assert.equal(migrated.rows[0].assigned_to, A);
+    assert.equal(migrated.rows[0].status, "pending");
+    assert.ok(migrated.rows[0].due_date);
+    await asUser(A, () =>
+      db.query(
+        "insert into public.learning_progress(user_id,track_id,completed_units,total_units) values ($1,'fachberater-recht',2,5)",
+        [A],
+      ),
+    );
+    const ownProgress = await asUser(A, () =>
+      db.query("select track_id from public.learning_progress"),
+    );
+    const otherProgress = await asUser(B, () =>
+      db.query("select track_id from public.learning_progress"),
+    );
+    assert.equal(ownProgress.rows.length, 1);
+    assert.equal(otherProgress.rows.length, 0);
+    await assert.rejects(
+      asUser(B, () =>
+        db.query(
+          "insert into public.learning_progress(user_id,track_id,completed_units,total_units) values ($1,'fachberater-sach',1,5)",
+          [A],
+        ),
+      ),
+    );
   } finally {
     await db.close();
   }
 });
+
