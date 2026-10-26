@@ -83,6 +83,7 @@ import TrainingDocuments from "@/components/training-documents";
 import LearningDashboard from "@/components/learning-dashboard";
 import InsurerDirectory from "@/components/insurer-directory";
 import FollowUpCalendar from "@/components/follow-up-calendar";
+import OfferManager from "@/components/offer-manager";
 import type { TeamCalendarEntry, TeamCalendarInput } from "@/lib/team-calendar";
 
 const categoryIcons = {
@@ -1099,7 +1100,7 @@ export default function Dashboard({
                           : view === "commissions"
                             ? "Ein Platz für deine Provisionsübersicht."
                             : view === "offers"
-                              ? "Deine Kundentermine und Nachfassaktionen an einem Ort."
+                              ? "Angebote, Termine und Nachfassaktionen an einem Ort."
                               : view === "cancellations"
                                 ? "Kontaktwege für Kündigungen bei Vorversicherern."
                                 : "Abwesenheiten und Verfügbarkeiten im Überblick."}
@@ -1221,7 +1222,17 @@ export default function Dashboard({
           )}
           {view === "quiz" && <InsureQuiz />}
           {view === "cancellations" && <InsurerDirectory />}
-          {view === "offers" && <FollowUpCalendar demo={demo} />}
+          {view === "offers" && (
+            <>
+              <OfferManager
+                userId={data.userId}
+                ownerName={data.name}
+                ownerEmail={data.email}
+                demo={demo}
+              />
+              <FollowUpCalendar demo={demo} />
+            </>
+          )}
           {view === "commissions" && (
             <section
               className="glass workspace-placeholder"
