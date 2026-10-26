@@ -80,6 +80,7 @@ import FixedCostsPanel from "@/components/fixed-costs";
 import TeamCalendar from "@/components/team-calendar";
 import InsureQuiz from "@/components/insure-quiz";
 import TrainingDocuments from "@/components/training-documents";
+import LearningDashboard from "@/components/learning-dashboard";
 import InsurerDirectory from "@/components/insurer-directory";
 import OfferManager from "@/components/offer-manager";
 import type { TeamCalendarEntry, TeamCalendarInput } from "@/lib/team-calendar";
@@ -1165,6 +1166,7 @@ export default function Dashboard({
 
           {view === "training" && (
             <>
+              <LearningDashboard demo={demo} />
               <div className="learning-grid">
                 <section
                   className="glass training-card"
@@ -2381,3 +2383,4 @@ export default function Dashboard({
     </div>
   );
 }
+

@@ -58,7 +58,12 @@ export async function POST(request: Request, context: Context) {
   if (!offer) return offerError("Angebot nicht gefunden.", 404);
   const { data, error } = await auth.db
     .from("offer_appointments")
-    .insert({ ...input, offer_id: id, owner_id: auth.user.id })
+    .insert({
+      ...input,
+      offer_id: id,
+      owner_id: auth.user.id,
+      assigned_to: auth.user.id,
+    })
     .select(OFFER_APPOINTMENT_COLUMNS)
     .single();
   if (error) return offerError("Termin konnte nicht gespeichert werden.", 500);
@@ -67,3 +72,4 @@ export async function POST(request: Request, context: Context) {
     { status: 201, headers: offerHeaders },
   );
 }
+
