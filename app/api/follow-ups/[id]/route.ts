@@ -24,10 +24,13 @@ export async function PATCH(request: Request, context: Context) {
     .from("follow_up_tasks")
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("owner_id", auth.user.id)
     .select(columns)
     .maybeSingle();
-  if (error) return offerError("Termin konnte nicht geändert werden.", 500);
+  if (error)
+    return offerError(
+      "Termin konnte nicht geändert werden.",
+      error.code === "42501" ? 403 : 500,
+    );
   if (!data) return offerError("Termin nicht gefunden.", 404);
   return Response.json({ task: data }, { headers: offerHeaders });
 }
@@ -42,7 +45,6 @@ export async function DELETE(request: Request, context: Context) {
     .from("follow_up_tasks")
     .delete()
     .eq("id", id)
-    .eq("owner_id", auth.user.id)
     .select("id")
     .maybeSingle();
   if (error) return offerError("Termin konnte nicht gelöscht werden.", 500);

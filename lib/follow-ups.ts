@@ -1,5 +1,16 @@
 export type FollowUpStatus = "pending" | "completed" | "rescheduled";
 
+export type FollowUpMember = { id: string; full_name: string };
+
+export function validFollowUpAssignee(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+
 export type FollowUpTask = {
   id: string;
   owner_id: string;
@@ -78,6 +89,8 @@ export function parseFollowUpInput(value: unknown) {
   const start = new Date(start_time);
   const end = new Date(end_time);
   if (
+    (input.assigned_to !== undefined &&
+      !validFollowUpAssignee(input.assigned_to)) ||
     !title ||
     title.length > 120 ||
     !customer_name ||
@@ -102,6 +115,9 @@ export function parseFollowUpInput(value: unknown) {
   )
     return null;
   return {
+    ...(input.assigned_to === undefined
+      ? {}
+      : { assigned_to: input.assigned_to as string }),
     title,
     customer_name,
     customer_email,

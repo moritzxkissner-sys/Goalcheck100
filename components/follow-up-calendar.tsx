@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -17,7 +18,13 @@ import {
 import styles from "./follow-up-calendar.module.css";
 
 type View = "week" | "month" | "list";
+type Assignment = {
+  currentUserId: string;
+  canAssign: boolean;
+  members: { id: string; full_name: string }[];
+};
 type Form = {
+  assigned_to: string;
   title: string;
   customer_name: string;
   customer_email: string;
@@ -71,8 +78,9 @@ function dateTitle(day: string) {
 function taskDay(task: FollowUpTask) {
   return isoToBerlinLocal(task.start_time).slice(0, 10);
 }
-function emptyForm(day: string): Form {
+function emptyForm(day: string, assignedTo = ""): Form {
   return {
+    assigned_to: assignedTo,
     title: "Follow-up",
     customer_name: "",
     customer_email: "",
@@ -89,6 +97,11 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   const [anchor, setAnchor] = useState(() => dayFormat.format(new Date()));
   const [view, setView] = useState<View>("week");
   const [tasks, setTasks] = useState<FollowUpTask[]>([]);
+  const [assignment, setAssignment] = useState<Assignment>({
+    currentUserId: "",
+    canAssign: false,
+    members: [],
+  });
   const [editor, setEditor] = useState<FollowUpTask | "new" | null>(null);
   const [form, setForm] = useState<Form>(() =>
     emptyForm(dayFormat.format(new Date())),
@@ -119,6 +132,11 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
       if (!response.ok)
         throw new Error(body.error ?? "Termine konnten nicht geladen werden.");
       setTasks(body.tasks ?? []);
+      setAssignment({
+        currentUserId: body.currentUserId ?? "",
+        canAssign: body.canAssign === true,
+        members: body.members ?? [],
+      });
       setError("");
     } catch (cause) {
       setError(
@@ -163,17 +181,27 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
       const day = taskDay(task);
       result.set(day, [...(result.get(day) ?? []), task]);
     }
+    for (const entries of result.values()) {
+      entries.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
     return result;
   }, [tasks]);
   const shown = tasks.filter((task) => taskDay(task).startsWith(month));
 
+  function assigneeName(id: string) {
+    return (
+      assignment.members.find((entry) => entry.id === id)?.full_name ||
+      (id === assignment.currentUserId ? "Ich" : "Zugewiesenes Mitglied")
+    );
+  }
   function openNew(day = anchor) {
-    setForm(emptyForm(day));
+    setForm(emptyForm(day, assignment.currentUserId));
     setEditor("new");
     setError("");
   }
   function openEdit(task: FollowUpTask) {
     setForm({
+      assigned_to: task.assigned_to,
       title: task.title,
       customer_name: task.customer_name,
       customer_email: task.customer_email ?? "",
@@ -232,7 +260,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
       setEditor(null);
       setAnchor(form.start_time.slice(0, 10));
       setNotice(isNew ? "Termin eingetragen." : "Termin aktualisiert.");
-      await load();
+      if (form.start_time.slice(0, 7) === month) await load();
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -298,7 +326,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
         <button
           className={styles.primary}
           onClick={() => openNew()}
-          disabled={demo}
+          disabled={demo || loading || !assignment.currentUserId}
         >
           <Plus size={17} /> Termin eintragen
         </button>
@@ -365,69 +393,60 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
           <>
             <div className={styles.weekScroll}>
               <div className={styles.weekGrid}>
-                <div className={styles.corner} />
-                <div className={styles.weekHeaders}>
-                  {week.map((day) => (
-                    <button
-                      key={day}
-                      onClick={() => openNew(day)}
-                      disabled={demo}
-                    >
-                      <strong>{dateTitle(day)}</strong>
-                      <span>{byDay.get(day)?.length ?? 0} Termine</span>
-                    </button>
-                  ))}
-                </div>
-                <div className={styles.times}>
-                  {Array.from({ length: 11 }, (_, hour) => (
-                    <span key={hour}>
-                      {String(hour + 8).padStart(2, "0")}:00
-                    </span>
-                  ))}
-                </div>
-                <div className={styles.dayColumns}>
-                  {week.map((day) => (
-                    <div key={day} className={styles.dayColumn}>
-                      {(byDay.get(day) ?? [])
-                        .filter((task) => {
-                          const hour = Number(
-                            isoToBerlinLocal(task.start_time).slice(11, 13),
-                          );
-                          return hour >= 8 && hour < 18;
-                        })
-                        .map((task) => {
-                          const start = isoToBerlinLocal(task.start_time);
-                          const end = isoToBerlinLocal(task.end_time);
-                          const startMinutes =
-                            Number(start.slice(11, 13)) * 60 +
-                            Number(start.slice(14, 16));
-                          const endMinutes =
-                            Number(end.slice(11, 13)) * 60 +
-                            Number(end.slice(14, 16));
-                          return (
-                            <button
-                              key={task.id}
-                              type="button"
-                              data-status={task.status}
-                              className={styles.event}
-                              style={{
-                                top: `${((startMinutes - 480) / 60) * 64}px`,
-                                height: `${(Math.max(29, Math.min(endMinutes, 1080) - startMinutes) / 60) * 64}px`,
-                              }}
-                              onClick={() => openEdit(task)}
-                            >
-                              <strong>
-                                {timeTitle.format(new Date(task.start_time))}–
-                                {timeTitle.format(new Date(task.end_time))}
-                              </strong>
-                              <span>{task.customer_name}</span>
-                              <small>{task.offer_subject}</small>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  ))}
-                </div>
+                <div className={styles.corner}>Uhrzeit</div>
+                {week.map((day) => (
+                  <button
+                    className={styles.dayHeader}
+                    key={day}
+                    onClick={() => openNew(day)}
+                    disabled={demo}
+                  >
+                    <strong>{dateTitle(day)}</strong>
+                    <span>{byDay.get(day)?.length ?? 0} Termine</span>
+                  </button>
+                ))}
+                {Array.from({ length: 10 }, (_, index) => index + 8).map(
+                  (hour) => (
+                    <Fragment key={hour}>
+                      <div className={styles.timeLabel}>
+                        {String(hour).padStart(2, "0")}:00
+                      </div>
+                      {week.map((day) => (
+                        <div key={day} className={styles.daySlot}>
+                          {(byDay.get(day) ?? [])
+                            .filter(
+                              (task) =>
+                                Number(
+                                  isoToBerlinLocal(task.start_time).slice(
+                                    11,
+                                    13,
+                                  ),
+                                ) === hour,
+                            )
+                            .map((task) => (
+                              <button
+                                key={task.id}
+                                type="button"
+                                data-status={task.status}
+                                className={styles.event}
+                                onClick={() => openEdit(task)}
+                              >
+                                <strong>
+                                  {timeTitle.format(new Date(task.start_time))}–
+                                  {timeTitle.format(new Date(task.end_time))}
+                                </strong>
+                                <span>{task.customer_name}</span>
+                                <small>{task.offer_subject}</small>
+                                <small className={styles.eventStatus}>
+                                  {statusName[task.status]}
+                                </small>
+                              </button>
+                            ))}
+                        </div>
+                      ))}
+                    </Fragment>
+                  ),
+                )}
               </div>
             </div>
             {week
@@ -449,10 +468,17 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     return hour < 8 || hour >= 18;
                   })
                   .map((task) => (
-                    <button key={task.id} onClick={() => openEdit(task)}>
+                    <button
+                      className={styles.event}
+                      key={task.id}
+                      onClick={() => openEdit(task)}
+                    >
                       {dateTitle(taskDay(task))} ·{" "}
                       {timeTitle.format(new Date(task.start_time))} ·{" "}
-                      {task.customer_name}
+                      {timeTitle.format(new Date(task.end_time))}
+                      <span>{task.customer_name}</span>
+                      <small>{task.offer_subject}</small>
+                      <small>{statusName[task.status]}</small>
                     </button>
                   ))}
               </div>
@@ -461,28 +487,36 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
         ) : view === "month" ? (
           <div className={styles.monthGrid}>
             {monthDays.map((day) => (
-              <button
+              <div
                 key={day}
                 className={styles.monthDay}
                 data-outside={!day.startsWith(month)}
-                onClick={() => {
-                  setAnchor(day);
-                  setView("week");
-                }}
               >
-                <strong>{dateTitle(day)}</strong>
-                <span>
-                  {(byDay.get(day) ?? []).length
-                    ? `${(byDay.get(day) ?? []).length} Termin(e)`
-                    : ""}
-                </span>
-                {(byDay.get(day) ?? []).slice(0, 2).map((task) => (
-                  <small key={task.id}>
-                    {timeTitle.format(new Date(task.start_time))}{" "}
-                    {task.customer_name}
-                  </small>
+                <button
+                  className={styles.monthDate}
+                  onClick={() => {
+                    setAnchor(day);
+                    setView("week");
+                  }}
+                >
+                  {dateTitle(day)}
+                </button>
+                {(byDay.get(day) ?? []).map((task) => (
+                  <button
+                    className={styles.event}
+                    key={task.id}
+                    onClick={() => openEdit(task)}
+                  >
+                    <strong>
+                      {timeTitle.format(new Date(task.start_time))}–
+                      {timeTitle.format(new Date(task.end_time))}
+                    </strong>
+                    <span>{task.customer_name}</span>
+                    <small>{task.offer_subject}</small>
+                    <small>{statusName[task.status]}</small>
+                  </button>
                 ))}
-              </button>
+              </div>
             ))}
           </div>
         ) : (
@@ -510,6 +544,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     <small>
                       {task.offer_subject} · {task.title}
                     </small>
+                    <small>Zuständig: {assigneeName(task.assigned_to)}</small>
                   </strong>
                   <em>{statusName[task.status]}</em>
                 </button>
@@ -608,30 +643,82 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                   />
                 </label>
               </div>
-              <div className={styles.formTwo}>
-                <label>
-                  Beginn
-                  <input
-                    required
-                    type="datetime-local"
-                    value={form.start_time}
-                    onChange={(event) =>
-                      setForm({ ...form, start_time: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Ende
-                  <input
-                    required
-                    type="datetime-local"
-                    value={form.end_time}
-                    onChange={(event) =>
-                      setForm({ ...form, end_time: event.target.value })
-                    }
-                  />
-                </label>
-              </div>
+              {(["start_time", "end_time"] as const).map((field) => (
+                <fieldset key={field} className={styles.dateTimeGroup}>
+                  <legend>
+                    {field === "start_time" ? "Beginn" : "Ende"}{" "}
+                    <span>(Berliner Zeit)</span>
+                  </legend>
+                  <div className={styles.dateTimeInputs}>
+                    <label>
+                      Datum
+                      <input
+                        required
+                        type="date"
+                        value={form[field].slice(0, 10)}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            [field]:
+                              event.target.value + "T" + form[field].slice(11),
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Uhrzeit
+                      <input
+                        required
+                        type="time"
+                        value={form[field].slice(11)}
+                        onChange={(event) =>
+                          setForm({
+                            ...form,
+                            [field]:
+                              form[field].slice(0, 10) +
+                              "T" +
+                              event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+              ))}
+              <label>
+                Zuständig
+                <select
+                  value={form.assigned_to}
+                  disabled={
+                    !assignment.canAssign ||
+                    (editor !== "new" &&
+                      editor.owner_id !== assignment.currentUserId)
+                  }
+                  onChange={(event) =>
+                    setForm({ ...form, assigned_to: event.target.value })
+                  }
+                >
+                  {!assignment.members.some(
+                    (member) => member.id === form.assigned_to,
+                  ) && (
+                    <option value={form.assigned_to}>
+                      {assigneeName(form.assigned_to)}
+                    </option>
+                  )}
+                  {assignment.members
+                    .filter(
+                      (member) =>
+                        assignment.canAssign ||
+                        member.id === assignment.currentUserId,
+                    )
+                    .map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.full_name || "Ich"}
+                        {member.id === assignment.currentUserId ? " (ich)" : ""}
+                      </option>
+                    ))}
+                </select>
+              </label>
               <label>
                 Status
                 <select
