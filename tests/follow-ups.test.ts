@@ -11,6 +11,29 @@ import {
 
 const A = "00000000-0000-4000-8000-000000000001";
 const B = "00000000-0000-4000-8000-000000000002";
+const C = "00000000-0000-4000-8000-000000000003";
+const D = "00000000-0000-4000-8000-000000000004";
+
+test("follow-up assignees are optional and must be UUIDs", () => {
+  const appointment = {
+    title: "Anrufen",
+    customer_name: "Kundin",
+    offer_subject: "Angebot",
+    start_time: "2026-10-27T08:00:00Z",
+    end_time: "2026-10-27T08:30:00Z",
+  };
+  assert.equal(parseFollowUpInput(appointment)?.assigned_to, undefined);
+  assert.equal(
+    parseFollowUpInput({ ...appointment, assigned_to: B })?.assigned_to,
+    B,
+  );
+  for (const assigned_to of [null, "", "invalid", 123])
+    assert.equal(parseFollowUpInput({ ...appointment, assigned_to }), null);
+  assert.equal(
+    "owner_id" in parseFollowUpInput({ ...appointment, owner_id: B })!,
+    false,
+  );
+});
 
 test("follow-up input validates a standalone customer appointment", () => {
   const start_time = berlinLocalToIso("2026-10-27T09:00");
@@ -64,7 +87,7 @@ test("follow-up input validates a standalone customer appointment", () => {
   assert.equal(parseFollowUpRange("2026-10-01", "2027-10-31"), null);
 });
 
-test("standalone follow-up migration preserves appointments and restricts rows to owners", async () => {
+test("follow-up migrations preserve appointments and enforce creator/recipient delegation permissions", async () => {
   const db = new PGlite();
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role;
@@ -154,6 +177,222 @@ test("standalone follow-up migration preserves appointments and restricts rows t
       ),
     );
     assert.equal(own.rows.length, 1);
+
+    for (const file of [
+      "202610120001_team_calendar.sql",
+      "202610140001_calendar_roster.sql",
+      "202610210001_calendar_partner_permissions.sql",
+      "202610280001_follow_up_delegation.sql",
+    ]) {
+      await db.exec(
+        await readFile(
+          new URL(`../supabase/migrations/${file}`, import.meta.url),
+          "utf8",
+        ),
+      );
+    }
+    await db.query(
+      "insert into auth.users(id,email) values ($1,'c@test.invalid'),($2,'d@test.invalid')",
+      [C, D],
+    );
+    await db.query("update public.profiles set active = true where id = $1", [
+      C,
+    ]);
+    await db.query(
+      "update public.profiles set can_manage_team_calendar = true where id in ($1,$2)",
+      [A, C],
+    );
+    const create = (creator: string, recipient: string) =>
+      db.query<{ id: string }>(
+        "insert into public.follow_up_tasks(owner_id,assigned_to,title,customer_name,offer_subject,start_time,end_time) values ($1,$2,'Delegiert','Kunde','Thema','2026-10-27T08:00:00Z','2026-10-27T08:30:00Z') returning id",
+        [creator, recipient],
+      );
+    const delegated = await asUser(A, () => create(A, B));
+    const delegatedId = delegated.rows[0].id;
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query("select id from public.follow_up_tasks where id = $1", [
+            delegatedId,
+          ]),
+        )
+      ).rows.length,
+      1,
+    );
+    assert.equal(
+      (
+        await asUser(C, () =>
+          db.query("select id from public.follow_up_tasks where id = $1", [
+            delegatedId,
+          ]),
+        )
+      ).rows.length,
+      0,
+      "unrelated manager cannot see customer appointments",
+    );
+    assert.equal(
+      (
+        await asUser(C, () =>
+          db.query(
+            "update public.follow_up_tasks set notes = 'intrusion' where id = $1 returning id",
+            [delegatedId],
+          ),
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(C, () =>
+          db.query(
+            "delete from public.follow_up_tasks where id = $1 returning id",
+            [delegatedId],
+          ),
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query(
+            "update public.follow_up_tasks set notes = 'recipient edited' where id = $1 returning id",
+            [delegatedId],
+          ),
+        )
+      ).rows.length,
+      1,
+    );
+    await assert.rejects(
+      asUser(B, () => create(B, A)),
+      /row-level security/,
+    );
+    await assert.rejects(
+      asUser(A, () => create(B, B)),
+      /row-level security/,
+    );
+    await assert.rejects(
+      asUser(A, () => create(A, D)),
+      /row-level security/,
+    );
+    await assert.rejects(
+      asUser(B, () =>
+        db.query(
+          "update public.follow_up_tasks set owner_id = $1 where id = $2",
+          [B, delegatedId],
+        ),
+      ),
+      /creator cannot be changed/,
+    );
+    await assert.rejects(
+      asUser(B, () =>
+        db.query(
+          "update public.follow_up_tasks set assigned_to = $1 where id = $2",
+          [C, delegatedId],
+        ),
+      ),
+      /authorized creator/,
+    );
+    await assert.rejects(
+      asUser(A, () =>
+        db.query(
+          "update public.follow_up_tasks set assigned_to = $1 where id = $2",
+          [D, delegatedId],
+        ),
+      ),
+      /active recipient/,
+    );
+    await asUser(A, () =>
+      db.query(
+        "update public.follow_up_tasks set assigned_to = $1 where id = $2",
+        [C, delegatedId],
+      ),
+    );
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query("select id from public.follow_up_tasks where id = $1", [
+            delegatedId,
+          ]),
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(A, () =>
+          db.query("select id from public.follow_up_tasks where id = $1", [
+            delegatedId,
+          ]),
+        )
+      ).rows.length,
+      1,
+    );
+    await assert.rejects(
+      asUser(C, () =>
+        db.query(
+          "update public.follow_up_tasks set assigned_to = $1 where id = $2",
+          [B, delegatedId],
+        ),
+      ),
+      /authorized creator/,
+      "even a manager recipient cannot transfer another creator's task",
+    );
+    assert.equal(
+      (
+        await asUser(C, () =>
+          db.query(
+            "delete from public.follow_up_tasks where id = $1 returning id",
+            [delegatedId],
+          ),
+        )
+      ).rows.length,
+      1,
+    );
+    assert.deepEqual(
+      (
+        await asUser(B, () =>
+          db.query<{ id: string }>("select id from public.follow_up_members()"),
+        )
+      ).rows.map((row) => row.id),
+      [B],
+    );
+    assert.deepEqual(
+      new Set(
+        (
+          await asUser(A, () =>
+            db.query<{ id: string }>(
+              "select id from public.follow_up_members()",
+            ),
+          )
+        ).rows.map((row) => row.id),
+      ),
+      new Set([A, B, C]),
+    );
+    await db.query(
+      "update public.profiles set can_manage_team_calendar = false where id = $1",
+      [A],
+    );
+    await assert.rejects(
+      asUser(A, () => create(A, B)),
+      /row-level security/,
+    );
+    await db.query("update public.profiles set active = false where id = $1", [
+      B,
+    ]);
+    assert.equal(
+      (await asUser(B, () => db.query("select id from public.follow_up_tasks")))
+        .rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(B, () =>
+          db.query("select id from public.follow_up_members()"),
+        )
+      ).rows.length,
+      0,
+    );
   } finally {
     await db.close();
   }
