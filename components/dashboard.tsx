@@ -1096,7 +1096,7 @@ export default function Dashboard({
                       : view === "training"
                         ? "Dein Zugang zur ARAG Lernplattform."
                         : view === "quiz"
-                          ? "Teste dein Versicherungswissen in kurzen Lerneinheiten."
+                          ? "Dein Lernbereich für Fachberater, SalesPower und Versicherungswissen."
                           : view === "commissions"
                             ? "Ein Platz für deine Provisionsübersicht."
                             : view === "offers"
@@ -1206,21 +1206,22 @@ export default function Dashboard({
                     <div className="eyebrow">WISSEN TESTEN</div>
                     <h2 id="quiz-title">InsureQuiz</h2>
                     <p>
-                      Sechs kurze Fragen zu Versicherungsgrundlagen mit
-                      sofortiger Erklärung.
+                      Entdecke Fachberaterzertifizierungen und SalesPower,
+                      bearbeite Lernmodule und verfolge deinen Fortschritt.
                     </p>
                     <button
                       className="primary training-link"
                       onClick={() => selectView("quiz")}
                     >
-                      Quiz öffnen <ChevronRight size={17} aria-hidden="true" />
+                      Lernbereich öffnen{" "}
+                      <ChevronRight size={17} aria-hidden="true" />
                     </button>
                   </div>
                 </section>
               </div>
             </>
           )}
-          {view === "quiz" && <InsureQuiz />}
+          {view === "quiz" && <InsureQuiz demo={demo} userId={data.userId} />}
           {view === "cancellations" && <InsurerDirectory />}
           {view === "offers" && (
             <>

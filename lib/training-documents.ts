@@ -1,6 +1,7 @@
+import type { DocumentMetadata } from "@/lib/academy-documents";
 export const TRAINING_MAX_BYTES = 10 * 1024 * 1024;
 
-export type TrainingDocument = {
+export type TrainingDocument = DocumentMetadata & {
   id: string;
   owner_id: string;
   title: string;
@@ -19,3 +20,4 @@ export function validateTrainingFile(file: File): string | null {
     return "Bitte eine PDF-Datei auswählen.";
   return null;
 }
+
