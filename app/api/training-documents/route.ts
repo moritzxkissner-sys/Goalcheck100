@@ -1,24 +1,13 @@
-import { isConfigured, supabaseServer } from "@/lib/supabase/server";
+import {
+  documentAuth as authorizedDb,
+  invalidOrigin,
+} from "@/lib/academy-documents-server";
+import { parseDocumentMetadata } from "@/lib/academy-documents";
 import { validateTrainingFile } from "@/lib/training-documents";
 
 export const runtime = "nodejs";
 
 const noStore = { "Cache-Control": "private, no-store" };
-
-async function authorizedDb() {
-  if (!isConfigured()) return null;
-  const db = await supabaseServer();
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await db
-    .from("profiles")
-    .select("active")
-    .eq("id", user.id)
-    .single();
-  return profile?.active ? { db, user } : null;
-}
 
 export async function GET() {
   const auth = await authorizedDb();
@@ -29,7 +18,9 @@ export async function GET() {
     );
   const { data, error } = await auth.db
     .from("training_documents")
-    .select("id,owner_id,title,description,file_size,created_at")
+    .select(
+      "id,owner_id,title,description,file_size,created_at,insurance_line,product,insurer,document_version,valid_from,module_id,processing_status",
+    )
     .order("created_at", { ascending: false })
     .limit(200);
   if (error)
@@ -37,7 +28,10 @@ export async function GET() {
       { error: "Dokumente konnten nicht geladen werden." },
       { status: 500, headers: noStore },
     );
-  return Response.json({ documents: data }, { headers: noStore });
+  return Response.json(
+    { documents: data, canManage: auth.canManage },
+    { headers: noStore },
+  );
 }
 
 export async function POST(request: Request) {
@@ -47,10 +41,9 @@ export async function POST(request: Request) {
       { error: "Nicht angemeldet." },
       { status: 401, headers: noStore },
     );
-  const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== new URL(request.url).host)
+  if (!auth.canManage || invalidOrigin(request))
     return Response.json(
-      { error: "Ungültige Anfrage." },
+      { error: "Keine Berechtigung." },
       { status: 403, headers: noStore },
     );
   const contentLength = Number(request.headers.get("content-length"));
@@ -68,6 +61,12 @@ export async function POST(request: Request) {
       { status: 400, headers: noStore },
     );
   }
+  const metadata = parseDocumentMetadata(Object.fromEntries(form.entries()));
+  if (!metadata)
+    return Response.json(
+      { error: "Bitte gültige Quellenangaben ausfüllen." },
+      { status: 400, headers: noStore },
+    );
   const file = form.get("file");
   const title = String(form.get("title") ?? "").trim();
   const description = String(form.get("description") ?? "").trim();
@@ -115,6 +114,7 @@ export async function POST(request: Request) {
     description,
     storage_path,
     file_size: file.size,
+    ...metadata,
   });
   if (saved.error) {
     await bucket.remove([storage_path]);
@@ -125,3 +125,4 @@ export async function POST(request: Request) {
   }
   return Response.json({ id }, { status: 201, headers: noStore });
 }
+

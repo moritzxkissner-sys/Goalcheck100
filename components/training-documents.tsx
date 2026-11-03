@@ -6,9 +6,19 @@ import {
   validateTrainingFile,
   type TrainingDocument,
 } from "@/lib/training-documents";
+import { getAcademyModule } from "@/lib/academy";
+import documentStyles from "./academy-question-drafts.module.css";
+import AcademyDocumentFields, {
+  AcademyDocumentEditor,
+  documentStatusLabels,
+} from "./academy-document-fields";
+import AcademyQuestionDrafts from "./academy-question-drafts";
 import styles from "./reference-panels.module.css";
 
-const cache = new Map<string, { documents: TrainingDocument[]; at: number }>();
+const cache = new Map<
+  string,
+  { documents: TrainingDocument[]; at: number; canManage: boolean }
+>();
 const CACHE_MS = 60_000;
 
 export default function TrainingDocuments({
@@ -23,6 +33,7 @@ export default function TrainingDocuments({
     initial?.documents ?? [],
   );
   const [loading, setLoading] = useState(!demo && !initial);
+  const [canManage, setCanManage] = useState(initial?.canManage ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -34,6 +45,7 @@ export default function TrainingDocuments({
       const cached = cache.get(userId);
       if (!force && cached && Date.now() - cached.at < CACHE_MS) {
         setDocuments(cached.documents);
+        setCanManage(cached.canManage);
         setLoading(false);
         return;
       }
@@ -48,7 +60,12 @@ export default function TrainingDocuments({
             body.error ?? "Dokumente konnten nicht geladen werden.",
           );
         setDocuments(body.documents);
-        cache.set(userId, { documents: body.documents, at: Date.now() });
+        setCanManage(body.canManage === true);
+        cache.set(userId, {
+          documents: body.documents,
+          at: Date.now(),
+          canManage: body.canManage === true,
+        });
         setError("");
       } catch (cause) {
         setError(
@@ -107,7 +124,7 @@ export default function TrainingDocuments({
   }
 
   const filtered = documents.filter((document) =>
-    `${document.title} ${document.description}`
+    `${document.title} ${document.description} ${document.insurance_line} ${document.product} ${document.insurer}`
       .toLocaleLowerCase("de-DE")
       .includes(query.trim().toLocaleLowerCase("de-DE")),
   );
@@ -127,46 +144,51 @@ export default function TrainingDocuments({
         </p>
       ) : (
         <>
-          <form onSubmit={upload} className={styles.form}>
-            <div className={styles.formRow}>
+          {canManage && (
+            <form onSubmit={upload} className={styles.form}>
+              <div className={styles.formRow}>
+                <label>
+                  Titel
+                  <input
+                    className={styles.input}
+                    name="title"
+                    required
+                    maxLength={120}
+                    placeholder="z. B. Produktschulung"
+                  />
+                </label>
+                <label>
+                  PDF-Datei
+                  <input
+                    className={styles.input}
+                    name="file"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    required
+                  />
+                </label>
+              </div>
               <label>
-                Titel
-                <input
+                Beschreibung (optional)
+                <textarea
                   className={styles.input}
-                  name="title"
-                  required
-                  maxLength={120}
-                  placeholder="z. B. Produktschulung"
+                  name="description"
+                  maxLength={500}
+                  rows={2}
+                  placeholder="Kurzer Hinweis zum Inhalt"
                 />
               </label>
-              <label>
-                PDF-Datei
-                <input
-                  className={styles.input}
-                  name="file"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  required
-                />
-              </label>
-            </div>
-            <label>
-              Beschreibung (optional)
-              <textarea
-                className={styles.input}
-                name="description"
-                maxLength={500}
-                rows={2}
-                placeholder="Kurzer Hinweis zum Inhalt"
-              />
-            </label>
-            <div className={styles.formFoot}>
-              <span>Maximal {TRAINING_MAX_BYTES / 1024 / 1024} MB pro PDF</span>
-              <button className={styles.button} type="submit" disabled={busy}>
-                {busy ? "Wird hochgeladen…" : "Dokument hochladen"}
-              </button>
-            </div>
-          </form>
+              <AcademyDocumentFields />
+              <div className={styles.formFoot}>
+                <span>
+                  Maximal {TRAINING_MAX_BYTES / 1024 / 1024} MB pro PDF
+                </span>
+                <button className={styles.button} type="submit" disabled={busy}>
+                  {busy ? "Wird hochgeladen…" : "Dokument hochladen"}
+                </button>
+              </div>
+            </form>
+          )}
           {error && (
             <p className={styles.error} role="alert">
               {error}
@@ -201,9 +223,43 @@ export default function TrainingDocuments({
             <ul className={styles.docList}>
               {filtered.map((document) => (
                 <li key={document.id}>
-                  <div>
+                  <div className={documentStyles.documentBody}>
                     <strong>{document.title}</strong>
                     {document.description && <p>{document.description}</p>}
+                    <p>
+                      {document.insurance_line || "Sparte offen"} ·{" "}
+                      {document.product || "Produkt offen"} ·{" "}
+                      {document.insurer || "Versicherer offen"}
+                    </p>
+                    <p>
+                      Version {document.document_version} ·{" "}
+                      {documentStatusLabels[document.processing_status]}
+                      {document.valid_from
+                        ? ` · Gültig ab ${document.valid_from}`
+                        : ""}
+                    </p>
+                    {document.module_id && (
+                      <p>
+                        Modul:{" "}
+                        {getAcademyModule(document.module_id)?.title ??
+                          document.module_id}
+                      </p>
+                    )}
+                    {canManage && (
+                      <>
+                        <AcademyDocumentEditor
+                          document={document}
+                          onSaved={async () => {
+                            cache.delete(userId);
+                            await load(true);
+                          }}
+                        />
+                        <AcademyQuestionDrafts
+                          key={JSON.stringify(document)}
+                          document={document}
+                        />
+                      </>
+                    )}
                     <small>
                       {new Date(document.created_at).toLocaleDateString(
                         "de-DE",
@@ -232,3 +288,4 @@ export default function TrainingDocuments({
     </section>
   );
 }
+

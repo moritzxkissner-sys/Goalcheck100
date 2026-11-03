@@ -134,7 +134,8 @@
   color: #9eafc6;
 }
 .weekScroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(78vh, 960px);
 }
 .weekGrid {
   min-width: 1882px;
@@ -144,6 +145,9 @@
 }
 .corner,
 .dayHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   min-height: 60px;
   padding: 12px 8px;
   background: #0d1b2d;
@@ -172,6 +176,10 @@
   background: #122b4e;
 }
 .timeLabel {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #0d1b2d;
   padding: 10px 7px;
   color: #92a9c8;
   font-size: 11px;
@@ -186,6 +194,10 @@
   padding: 6px;
   border-right: 1px solid rgba(116, 151, 203, 0.13);
   border-bottom: 1px solid rgba(116, 151, 203, 0.14);
+}
+.endBoundary {
+  border-right: 1px solid rgba(116, 151, 203, 0.13);
+  min-height: 32px;
 }
 .event {
   display: flex;

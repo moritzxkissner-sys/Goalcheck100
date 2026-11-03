@@ -16,6 +16,11 @@ import {
   type FollowUpTask,
 } from "@/lib/follow-ups";
 import styles from "./follow-up-calendar.module.css";
+import {
+  CALENDAR_END_HOUR,
+  calendarHours,
+  isInCalendarGrid,
+} from "@/lib/calendar-hours";
 
 type View = "week" | "month" | "list";
 type Assignment = {
@@ -405,68 +410,58 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     <span>{byDay.get(day)?.length ?? 0} Termine</span>
                   </button>
                 ))}
-                {Array.from({ length: 10 }, (_, index) => index + 8).map(
-                  (hour) => (
-                    <Fragment key={hour}>
-                      <div className={styles.timeLabel}>
-                        {String(hour).padStart(2, "0")}:00
+                {calendarHours.map((hour) => (
+                  <Fragment key={hour}>
+                    <div className={styles.timeLabel}>
+                      {String(hour).padStart(2, "0")}:00
+                    </div>
+                    {week.map((day) => (
+                      <div key={day} className={styles.daySlot}>
+                        {(byDay.get(day) ?? [])
+                          .filter(
+                            (task) =>
+                              Number(
+                                isoToBerlinLocal(task.start_time).slice(11, 13),
+                              ) === hour,
+                          )
+                          .map((task) => (
+                            <button
+                              key={task.id}
+                              type="button"
+                              data-status={task.status}
+                              className={styles.event}
+                              onClick={() => openEdit(task)}
+                            >
+                              <strong>
+                                {timeTitle.format(new Date(task.start_time))}–
+                                {timeTitle.format(new Date(task.end_time))}
+                              </strong>
+                              <span>{task.customer_name}</span>
+                              <small>{task.offer_subject}</small>
+                              <small className={styles.eventStatus}>
+                                {statusName[task.status]}
+                              </small>
+                            </button>
+                          ))}
                       </div>
-                      {week.map((day) => (
-                        <div key={day} className={styles.daySlot}>
-                          {(byDay.get(day) ?? [])
-                            .filter(
-                              (task) =>
-                                Number(
-                                  isoToBerlinLocal(task.start_time).slice(
-                                    11,
-                                    13,
-                                  ),
-                                ) === hour,
-                            )
-                            .map((task) => (
-                              <button
-                                key={task.id}
-                                type="button"
-                                data-status={task.status}
-                                className={styles.event}
-                                onClick={() => openEdit(task)}
-                              >
-                                <strong>
-                                  {timeTitle.format(new Date(task.start_time))}–
-                                  {timeTitle.format(new Date(task.end_time))}
-                                </strong>
-                                <span>{task.customer_name}</span>
-                                <small>{task.offer_subject}</small>
-                                <small className={styles.eventStatus}>
-                                  {statusName[task.status]}
-                                </small>
-                              </button>
-                            ))}
-                        </div>
-                      ))}
-                    </Fragment>
-                  ),
-                )}
+                    ))}
+                  </Fragment>
+                ))}
+                <div className={styles.timeLabel}>{CALENDAR_END_HOUR}:00</div>
+                {week.map((day) => (
+                  <div key={day} className={styles.endBoundary} />
+                ))}
               </div>
             </div>
             {week
               .flatMap((day) => byDay.get(day) ?? [])
-              .filter((task) => {
-                const hour = Number(
-                  isoToBerlinLocal(task.start_time).slice(11, 13),
-                );
-                return hour < 8 || hour >= 18;
-              }).length > 0 && (
+              .filter((task) => !isInCalendarGrid(task.start_time)).length >
+              0 && (
               <div className={styles.outside}>
                 <strong>Weitere Uhrzeiten</strong>
                 {week
                   .flatMap((day) => byDay.get(day) ?? [])
-                  .filter((task) => {
-                    const hour = Number(
-                      isoToBerlinLocal(task.start_time).slice(11, 13),
-                    );
-                    return hour < 8 || hour >= 18;
-                  })
+                  .filter((task) => !isInCalendarGrid(task.start_time))
                   .map((task) => (
                     <button
                       className={styles.event}
