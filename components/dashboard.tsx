@@ -480,21 +480,12 @@ export default function Dashboard({
   const entryId = useRef("");
   const cancellationId = useRef("");
   useEffect(() => {
-    if (demo) return;
-    const refresh = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [router, demo]);
-  useEffect(() => {
-    if (!demo) return;
     let timer: ReturnType<typeof setTimeout>;
     const resetToday = () => {
+      if (!demo) {
+        router.refresh();
+        return;
+      }
       const today = berlinDate();
       setData((old) =>
         old.daily.date === today
@@ -531,7 +522,7 @@ export default function Dashboard({
       window.removeEventListener("focus", refreshAfterReturn);
       document.removeEventListener("visibilitychange", refreshAfterReturn);
     };
-  }, [demo]);
+  }, [demo, router]);
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 5000);
@@ -1699,6 +1690,7 @@ export default function Dashboard({
               <TeamCalendar
                 members={data.calendarMembers}
                 entries={data.calendarEntries}
+                entriesMonth={demo ? undefined : data.daily.date.slice(0, 7)}
                 currentUserId={data.userId}
                 canManageCalendar={data.canManageCalendar}
                 openFormSignal={calendarOpenSignal}
@@ -2388,4 +2380,3 @@ export default function Dashboard({
     </div>
   );
 }
-

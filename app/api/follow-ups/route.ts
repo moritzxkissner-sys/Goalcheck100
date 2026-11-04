@@ -6,6 +6,7 @@ import {
   validOrigin,
 } from "@/lib/offers-api";
 import { parseFollowUpInput, parseFollowUpRange } from "@/lib/follow-ups";
+import { readCalendarPages } from "@/lib/read-calendar-pages";
 
 export const runtime = "nodejs";
 const columns =
@@ -32,14 +33,21 @@ export async function GET(request: Request) {
       "Kalenderberechtigungen konnten nicht geladen werden.",
       500,
     );
-  let query = auth.db.from("follow_up_tasks").select(columns);
-  if (assignee) query = query.eq("assigned_to", assignee);
-  const { data, error } = await query
-    .gte("start_time", range.from)
-    .lt("start_time", range.to)
-    .order("start_time", { ascending: true })
-    .limit(500);
-  if (error) return offerError("Termine konnten nicht geladen werden.", 500);
+  let data;
+  try {
+    data = await readCalendarPages((from, to) => {
+      let query = auth.db.from("follow_up_tasks").select(columns);
+      if (assignee) query = query.eq("assigned_to", assignee);
+      return query
+        .gte("start_time", range.from)
+        .lt("start_time", range.to)
+        .order("start_time", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to);
+    });
+  } catch {
+    return offerError("Termine konnten nicht vollständig geladen werden.", 500);
+  }
   return Response.json(
     {
       tasks: data,
@@ -73,4 +81,3 @@ export async function POST(request: Request) {
     );
   return Response.json({ task: data }, { status: 201, headers: offerHeaders });
 }
-

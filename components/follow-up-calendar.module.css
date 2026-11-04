@@ -80,6 +80,19 @@
 }
 .calendar {
   overflow: hidden;
+  position: relative;
+}
+.loading {
+  pointer-events: none;
+  position: absolute;
+  top: 68px;
+  left: 12px;
+  z-index: 5;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #122b4e;
+  color: #e5edfa;
 }
 .toolbar {
   display: flex;
@@ -157,6 +170,8 @@
   border-bottom: 1px solid rgba(116, 151, 203, 0.18);
 }
 .corner {
+  left: 0;
+  z-index: 4;
   font-size: 11px;
   color: #849ab9;
 }
@@ -175,10 +190,13 @@
 .dayHeader:hover:not(:disabled) {
   background: #122b4e;
 }
-.timeLabel {
+.timeAxis {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: 3;
+  background: #0d1b2d;
+}
+.timeLabel {
   background: #0d1b2d;
   padding: 10px 7px;
   color: #92a9c8;
@@ -186,18 +204,14 @@
   border-right: 1px solid rgba(116, 151, 203, 0.16);
   border-bottom: 1px solid rgba(116, 151, 203, 0.14);
 }
-.daySlot {
-  min-height: 80px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 6px;
+.dayTimeline {
+  position: relative;
   border-right: 1px solid rgba(116, 151, 203, 0.13);
-  border-bottom: 1px solid rgba(116, 151, 203, 0.14);
-}
-.endBoundary {
-  border-right: 1px solid rgba(116, 151, 203, 0.13);
-  min-height: 32px;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(116, 151, 203, 0.14) 1px,
+    transparent 1px
+  );
 }
 .event {
   display: flex;
@@ -468,4 +482,3 @@
     text-align: left;
   }
 }
-

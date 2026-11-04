@@ -45,7 +45,7 @@ test("source metadata and manual draft validation rejects unsupported modules, v
   assert.equal(parseQuestionDraft({ ...draft, correct_indices: [0, 0] }), null);
   assert.equal(parseQuestionDraft({ ...draft, citation: "" }), null);
 });
-test("academy document migration enforces manager mutations, private reads and immutable reviewed source versions", async () => {
+test("document permissions preserve existing maintainers independently of new calendar delegates", async () => {
   const db = new PGlite();
   try {
     await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create schema storage;
@@ -76,6 +76,20 @@ test("academy document migration enforces manager mutations, private reads and i
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202611040001_document_management_permission.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    // A former calendar delegate keeps document access; a newly granted
+    // calendar delegate receives no document maintenance permission.
+    await db.query("update profiles set can_manage_team_calendar = (id = $1)", [
+      reader,
+    ]);
     async function asUser<T>(id: string, action: () => Promise<T>) {
       await db.exec("begin;set local role authenticated;");
       await db.query("select set_config('request.jwt.claim.sub',$1,true)", [
@@ -90,13 +104,41 @@ test("academy document migration enforces manager mutations, private reads and i
         throw error;
       }
     }
-    const insertDoc = () =>
+    assert.deepEqual(
+      (
+        await asUser(manager, () =>
+          db.query(
+            "select public.can_manage_team_calendar() as calendar, public.can_manage_training_documents() as documents",
+          ),
+        )
+      ).rows,
+      [{ calendar: false, documents: true }],
+    );
+    assert.deepEqual(
+      (
+        await asUser(reader, () =>
+          db.query(
+            "select public.can_manage_team_calendar() as calendar, public.can_manage_training_documents() as documents",
+          ),
+        )
+      ).rows,
+      [{ calendar: true, documents: false }],
+    );
+    assert.equal(
+      (
+        await db.query<{ allowed: boolean }>(
+          "select has_function_privilege('anon', 'public.can_manage_training_documents()', 'EXECUTE') as allowed",
+        )
+      ).rows[0].allowed,
+      false,
+    );
+    const insertDoc = (owner = manager) =>
       db.query(
         `insert into training_documents(id,owner_id,title,insurance_line,product,insurer,document_version,module_id,processing_status) values ($1,$2,'Quelle','Sach','Hausrat','Quelle','2026-1','salespower-hausrat-grundlagen','approved')`,
-        [doc, manager],
+        [doc, owner],
       );
-    await assert.rejects(asUser(reader, insertDoc));
-    await asUser(manager, insertDoc);
+    await assert.rejects(asUser(reader, () => insertDoc(reader)));
+    await asUser(manager, () => insertDoc());
     await assert.rejects(
       asUser(reader, () =>
         db.query(
@@ -117,6 +159,33 @@ test("academy document migration enforces manager mutations, private reads and i
     assert.equal(
       (
         await asUser(manager, () =>
+          db.query("delete from storage.objects returning id"),
+        )
+      ).rows.length,
+      0,
+    );
+    const orphan = "00000000-0000-4000-8000-000000000004";
+    await asUser(manager, () =>
+      db.query(
+        "insert into storage.objects(id,name,bucket_id) values ($1,$2,'training-documents')",
+        [orphan, manager + "/" + orphan + ".pdf"],
+      ),
+    );
+    assert.equal(
+      (
+        await asUser(manager, () =>
+          db.query("delete from storage.objects returning id"),
+        )
+      ).rows.length,
+      1,
+    );
+    await db.query(
+      "insert into storage.objects(id,name,bucket_id) values ($1,$2,'training-documents')",
+      [orphan, reader + "/" + orphan + ".pdf"],
+    );
+    assert.equal(
+      (
+        await asUser(reader, () =>
           db.query("delete from storage.objects returning id"),
         )
       ).rows.length,
@@ -144,14 +213,38 @@ test("academy document migration enforces manager mutations, private reads and i
       ).rows.length,
       0,
     );
-    const insertDraft = (version = "2026-1", status = "draft") =>
+    const insertDraft = (
+      version = "2026-1",
+      status = "draft",
+      creator = manager,
+    ) =>
       db.query(
         `insert into academy_question_drafts(document_id,document_version,citation,prompt,choices,correct_indices,explanation,module_id,status,created_by) values ($1,$2,'Seite 2','Frage',array['A','B'],array[0],'Erklärung','salespower-hausrat-grundlagen',$3,$4)`,
-        [doc, version, status, manager],
+        [doc, version, status, creator],
       );
-    await assert.rejects(asUser(reader, () => insertDraft()));
+    await assert.rejects(
+      asUser(reader, () => insertDraft("2026-1", "draft", reader)),
+    );
     await assert.rejects(asUser(manager, () => insertDraft("wrong")));
     await asUser(manager, () => insertDraft());
+    assert.equal(
+      (
+        await asUser(reader, () =>
+          db.query("select id from academy_question_drafts"),
+        )
+      ).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await asUser(reader, () =>
+          db.query(
+            "update academy_question_drafts set status='approved' returning id",
+          ),
+        )
+      ).rows.length,
+      0,
+    );
     await assert.rejects(
       asUser(manager, () =>
         db.query("update academy_question_drafts set correct_indices=array[9]"),
@@ -219,8 +312,18 @@ test("academy document migration enforces manager mutations, private reads and i
         db.query("update academy_question_drafts set status='approved'"),
       ),
     );
+    await db.query("update profiles set active=false where id=$1", [manager]);
+    assert.equal(
+      (
+        await asUser(manager, () =>
+          db.query<{ allowed: boolean }>(
+            "select public.can_manage_training_documents() as allowed",
+          ),
+        )
+      ).rows[0].allowed,
+      false,
+    );
   } finally {
     await db.close();
   }
 });
-
