@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -24,6 +30,7 @@ import styles from "./team-calendar.module.css";
 export type TeamCalendarProps = {
   members: TeamCalendarMember[];
   entries: TeamCalendarEntry[];
+  entriesMonth?: string;
   currentUserId: string;
   canManageCalendar: boolean;
   onCreate: (input: TeamCalendarInput) => Promise<{ error?: string }>;
@@ -102,6 +109,7 @@ function avatar(name: string) {
 export default function TeamCalendar({
   members,
   entries,
+  entriesMonth,
   currentUserId,
   canManageCalendar,
   onCreate,
@@ -128,6 +136,31 @@ export default function TeamCalendar({
   const dateRef = useRef<HTMLInputElement>(null);
   const initialSignal = useRef(openFormSignal);
   const requestId = useRef(0);
+  const receivedEntries = useRef({ entries, entriesMonth });
+
+  const refreshEntries = useEffectEvent(() => {
+    if (month === entriesMonth) {
+      ++requestId.current;
+      setVisibleEntries(entries);
+      setLoading(false);
+      setError("");
+    } else {
+      void loadMonth(month, true);
+    }
+  });
+
+  useEffect(() => {
+    const previous = receivedEntries.current;
+    receivedEntries.current = { entries, entriesMonth };
+    if (
+      !entriesMonth ||
+      (previous.entries === entries && previous.entriesMonth === entriesMonth)
+    )
+      return;
+    // A server refresh supplies the current month; retain any browsed month.
+    const timer = setTimeout(refreshEntries, 0);
+    return () => clearTimeout(timer);
+  }, [entries, entriesMonth]);
 
   useEffect(() => {
     if (openFormSignal === initialSignal.current) return;
@@ -136,12 +169,14 @@ export default function TeamCalendar({
     dateRef.current?.focus({ preventScroll: true });
   }, [openFormSignal]);
 
-  async function loadMonth(nextMonth: string) {
+  async function loadMonth(nextMonth: string, preserveSelection = false) {
     const id = ++requestId.current;
-    setMonth(nextMonth);
+    if (!preserveSelection) {
+      setMonth(nextMonth);
+      setConfirmDeleteId(null);
+    }
     setLoading(true);
     setError("");
-    setConfirmDeleteId(null);
     try {
       const loaded = await onLoadMonth(nextMonth);
       if (id === requestId.current) setVisibleEntries(loaded);
@@ -215,10 +250,10 @@ export default function TeamCalendar({
       created = true;
       // Show the saved date immediately, including entries in another month.
       const entryMonth = startsOn.slice(0, 7);
-      const refreshed = await onLoadMonth(entryMonth);
-      ++requestId.current;
+      const id = ++requestId.current;
       setMonth(entryMonth);
-      setVisibleEntries(refreshed);
+      const refreshed = await onLoadMonth(entryMonth);
+      if (id === requestId.current) setVisibleEntries(refreshed);
       setComment("");
       setSuccess("Abwesenheit eingetragen.");
     } catch {

@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -18,9 +18,11 @@ import {
 import styles from "./follow-up-calendar.module.css";
 import {
   CALENDAR_END_HOUR,
+  CALENDAR_START_HOUR,
   calendarHours,
   isInCalendarGrid,
 } from "@/lib/calendar-hours";
+import { CALENDAR_HOUR_HEIGHT, layoutCalendarDay } from "@/lib/calendar-layout";
 
 type View = "week" | "month" | "list";
 type Assignment = {
@@ -115,6 +117,9 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const request = useRef<{ id: number; controller?: AbortController }>({
+    id: 0,
+  });
 
   const month = anchor.slice(0, 7);
   const rangeFrom = weekStart(`${month}-01`);
@@ -127,13 +132,20 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   );
   const load = useCallback(async () => {
     if (demo) return;
+    request.current.controller?.abort();
+    const controller = new AbortController();
+    const id = ++request.current.id;
+    request.current.controller = controller;
+    const current = () =>
+      id === request.current.id && !controller.signal.aborted;
     setLoading(true);
     try {
       const response = await fetch(
         `/api/follow-ups?from=${rangeFrom}&to=${rangeTo}`,
-        { cache: "no-store" },
+        { cache: "no-store", signal: controller.signal },
       );
       const body = await response.json();
+      if (!current()) return;
       if (!response.ok)
         throw new Error(body.error ?? "Termine konnten nicht geladen werden.");
       setTasks(body.tasks ?? []);
@@ -144,18 +156,33 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
       });
       setError("");
     } catch (cause) {
+      if (!current()) return;
       setError(
         cause instanceof Error
           ? cause.message
           : "Termine konnten nicht geladen werden.",
       );
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [demo, rangeFrom, rangeTo]);
   useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
-    return () => clearTimeout(timer);
+    const activeRequest = request.current;
+    let timer = setTimeout(() => void load(), 0);
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      clearTimeout(timer);
+      timer = setTimeout(() => void load(), 0);
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearTimeout(timer);
+      ++activeRequest.id;
+      activeRequest.controller?.abort();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [load]);
 
   const week = useMemo(
@@ -192,6 +219,17 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
     return result;
   }, [tasks]);
   const shown = tasks.filter((task) => taskDay(task).startsWith(month));
+  const weekLayouts = week.map((day) =>
+    layoutCalendarDay(
+      (byDay.get(day) ?? []).filter((task) =>
+        isInCalendarGrid(task.start_time),
+      ),
+    ),
+  );
+  const weekColumns = weekLayouts.map(
+    (events) =>
+      `minmax(${Math.max(1, ...events.map((event) => event.lanes)) * 260}px, 1fr)`,
+  );
 
   function assigneeName(id: string) {
     return (
@@ -352,7 +390,11 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
           {error}
         </p>
       )}
-      <section className={styles.calendar} aria-label="Follow-up-Kalender">
+      <section
+        className={styles.calendar}
+        aria-label="Follow-up-Kalender"
+        aria-busy={loading}
+      >
         <div className={styles.toolbar}>
           <div className={styles.title}>
             <CalendarDays size={21} />
@@ -392,12 +434,18 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
             ))}
           </div>
         </div>
-        {loading ? (
-          <p className={styles.empty}>Termine werden geladen …</p>
-        ) : view === "week" ? (
+        {loading && (
+          <p className={styles.loading} role="status">
+            Termine werden geladen …
+          </p>
+        )}
+        {view === "week" ? (
           <>
             <div className={styles.weekScroll}>
-              <div className={styles.weekGrid}>
+              <div
+                className={styles.weekGrid}
+                style={{ gridTemplateColumns: `62px ${weekColumns.join(" ")}` }}
+              >
                 <div className={styles.corner}>Uhrzeit</div>
                 {week.map((day) => (
                   <button
@@ -410,47 +458,71 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     <span>{byDay.get(day)?.length ?? 0} Termine</span>
                   </button>
                 ))}
-                {calendarHours.map((hour) => (
-                  <Fragment key={hour}>
-                    <div className={styles.timeLabel}>
+                <div className={styles.timeAxis}>
+                  {calendarHours.map((hour) => (
+                    <div
+                      key={hour}
+                      className={styles.timeLabel}
+                      style={{ height: CALENDAR_HOUR_HEIGHT }}
+                    >
                       {String(hour).padStart(2, "0")}:00
                     </div>
-                    {week.map((day) => (
-                      <div key={day} className={styles.daySlot}>
-                        {(byDay.get(day) ?? [])
-                          .filter(
-                            (task) =>
-                              Number(
-                                isoToBerlinLocal(task.start_time).slice(11, 13),
-                              ) === hour,
-                          )
-                          .map((task) => (
-                            <button
-                              key={task.id}
-                              type="button"
-                              data-status={task.status}
-                              className={styles.event}
-                              onClick={() => openEdit(task)}
-                            >
-                              <strong>
-                                {timeTitle.format(new Date(task.start_time))}–
-                                {timeTitle.format(new Date(task.end_time))}
-                              </strong>
-                              <span>{task.customer_name}</span>
-                              <small>{task.offer_subject}</small>
-                              <small className={styles.eventStatus}>
-                                {statusName[task.status]}
-                              </small>
-                            </button>
-                          ))}
-                      </div>
-                    ))}
-                  </Fragment>
-                ))}
-                <div className={styles.timeLabel}>{CALENDAR_END_HOUR}:00</div>
-                {week.map((day) => (
-                  <div key={day} className={styles.endBoundary} />
-                ))}
+                  ))}
+                  <div className={styles.timeLabel}>{CALENDAR_END_HOUR}:00</div>
+                </div>
+                {week.map((day, index) => {
+                  const events = weekLayouts[index];
+                  const gridHeight =
+                    (CALENDAR_END_HOUR - CALENDAR_START_HOUR) *
+                    CALENDAR_HOUR_HEIGHT;
+                  const bottom = Math.max(
+                    gridHeight,
+                    ...events.map((event) => event.top + event.height),
+                  );
+                  const lanes = Math.max(
+                    1,
+                    ...events.map((event) => event.lanes),
+                  );
+                  return (
+                    <div
+                      key={day}
+                      className={styles.dayTimeline}
+                      style={{
+                        height: bottom + 32,
+                        minWidth: lanes * 260,
+                        backgroundSize: `100% ${CALENDAR_HOUR_HEIGHT}px`,
+                      }}
+                    >
+                      {events.map(({ task, top, height, lane, lanes }) => (
+                        <button
+                          key={task.id}
+                          type="button"
+                          data-status={task.status}
+                          className={styles.event}
+                          style={{
+                            position: "absolute",
+                            top,
+                            minHeight: height,
+                            left: `calc(${(lane / lanes) * 100}% + 5px)`,
+                            width: `calc(${100 / lanes}% - 10px)`,
+                          }}
+                          title={`${timeTitle.format(new Date(task.start_time))}–${timeTitle.format(new Date(task.end_time))} · ${task.customer_name} · ${task.offer_subject} · ${statusName[task.status]}`}
+                          onClick={() => openEdit(task)}
+                        >
+                          <strong>
+                            {timeTitle.format(new Date(task.start_time))}–
+                            {timeTitle.format(new Date(task.end_time))}
+                          </strong>
+                          <span>{task.customer_name}</span>
+                          <small>{task.offer_subject}</small>
+                          <small className={styles.eventStatus}>
+                            {statusName[task.status]}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
             {week
@@ -780,4 +852,3 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
     </div>
   );
 }
-

@@ -13,7 +13,7 @@ export async function documentAuth() {
     .eq("id", user.id)
     .single();
   if (!profile?.active) return null;
-  const { data: canManage } = await db.rpc("can_manage_team_calendar");
+  const { data: canManage } = await db.rpc("can_manage_training_documents");
   return { db, user, canManage: canManage === true };
 }
 export function invalidOrigin(request: Request) {
@@ -24,4 +24,3 @@ export function invalidOrigin(request: Request) {
     return true;
   }
 }
-
