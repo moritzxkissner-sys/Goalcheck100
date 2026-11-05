@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import {
   TRAINING_MAX_BYTES,
   validateTrainingFile,
   type TrainingDocument,
 } from "@/lib/training-documents";
-import { getAcademyModule } from "@/lib/academy";
+import { academyTracks, getAcademyModule } from "@/lib/academy";
 import documentStyles from "./academy-question-drafts.module.css";
 import AcademyDocumentFields, {
   AcademyDocumentEditor,
@@ -24,10 +24,20 @@ const CACHE_MS = 60_000;
 export default function TrainingDocuments({
   userId,
   demo = false,
+  moduleId,
 }: {
   userId: string;
   demo?: boolean;
+  moduleId?: string;
 }) {
+  const headingId = useId();
+  const searchId = useId();
+  const moduleTrack = academyTracks.find((track) =>
+    track.modules.some((module) => module.id === moduleId),
+  );
+  const moduleTitle = moduleTrack
+    ? `${moduleTrack.title} · ${moduleTrack.modules.find((module) => module.id === moduleId)?.title}`
+    : null;
   const initial = cache.get(userId);
   const [documents, setDocuments] = useState<TrainingDocument[]>(
     initial?.documents ?? [],
@@ -123,18 +133,33 @@ export default function TrainingDocuments({
     }
   }
 
-  const filtered = documents.filter((document) =>
-    `${document.title} ${document.description} ${document.insurance_line} ${document.product} ${document.insurer}`
-      .toLocaleLowerCase("de-DE")
-      .includes(query.trim().toLocaleLowerCase("de-DE")),
+  const filtered = documents.filter(
+    (document) =>
+      (!moduleId || document.module_id === moduleId) &&
+      `${document.title} ${document.description} ${document.insurance_line} ${document.product} ${document.insurer}`
+        .toLocaleLowerCase("de-DE")
+        .includes(query.trim().toLocaleLowerCase("de-DE")),
   );
   return (
-    <section className={styles.panel} aria-labelledby="training-heading">
+    <section className={styles.panel} aria-labelledby={headingId}>
       <div className={styles.heading}>
         <div>
           <p className={styles.eyebrow}>Weiterbildung</p>
-          <h2 id="training-heading">Dokumente</h2>
-          <p>PDF-Unterlagen für aktive Teammitglieder.</p>
+          <h2 id={headingId}>
+            {moduleTitle ? `Unterlagen: ${moduleTitle}` : "Dokumente"}
+          </h2>
+          <p>
+            {moduleTitle
+              ? "PDF-Unterlagen für dieses Lernmodul."
+              : "PDF-Unterlagen für aktive Teammitglieder."}
+          </p>
+          {moduleTitle && (
+            <p>
+              Ein Upload erstellt noch kein Quiz. Quellen und Fragenentwürfe
+              müssen fachlich geprüft und freigegeben werden; die Bereitstellung
+              als Übungsquiz steht noch aus.
+            </p>
+          )}
         </div>
       </div>
       {demo ? (
@@ -178,7 +203,7 @@ export default function TrainingDocuments({
                   placeholder="Kurzer Hinweis zum Inhalt"
                 />
               </label>
-              <AcademyDocumentFields />
+              <AcademyDocumentFields moduleId={moduleId} />
               <div className={styles.formFoot}>
                 <span>
                   Maximal {TRAINING_MAX_BYTES / 1024 / 1024} MB pro PDF
@@ -200,7 +225,9 @@ export default function TrainingDocuments({
             </p>
           )}
           <div className={styles.listHeader}>
-            <label htmlFor="training-search">Teamunterlagen</label>
+            <label htmlFor={searchId}>
+              {moduleTitle ? "Modulunterlagen" : "Teamunterlagen"}
+            </label>
             <button
               type="button"
               onClick={() => void load(true)}
@@ -210,7 +237,7 @@ export default function TrainingDocuments({
             </button>
           </div>
           <input
-            id="training-search"
+            id={searchId}
             className={styles.input}
             type="search"
             value={query}
@@ -288,4 +315,3 @@ export default function TrainingDocuments({
     </section>
   );
 }
-

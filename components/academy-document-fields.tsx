@@ -14,8 +14,10 @@ export const documentStatusLabels: Record<string, string> = {
 };
 export default function AcademyDocumentFields({
   value,
+  moduleId,
 }: {
   value?: DocumentMetadata;
+  moduleId?: string;
 }) {
   return (
     <>
@@ -55,7 +57,7 @@ export default function AcademyDocumentFields({
           <select
             className={styles.input}
             name="module_id"
-            defaultValue={value?.module_id ?? ""}
+            defaultValue={value?.module_id ?? moduleId ?? ""}
           >
             <option value="">Noch nicht zugeordnet</option>
             {academyTracks.map((track) => (
@@ -141,4 +143,3 @@ export function AcademyDocumentEditor({
     </details>
   );
 }
-
