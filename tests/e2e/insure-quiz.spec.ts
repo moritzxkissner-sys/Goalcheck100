@@ -10,6 +10,61 @@ async function openAcademy(page: Page) {
   return page.getByRole("region", { name: "InsureQuiz Lernbereich" });
 }
 
+test("private-customer module shows its materials area without enabling uploads or a quiz in demo", async ({
+  page,
+}) => {
+  const academy = await openAcademy(page);
+  await academy
+    .getByRole("button")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Fachberaterzertifizierungen",
+        exact: true,
+      }),
+    })
+    .click();
+  await academy
+    .getByRole("button")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Recht und Absicherung Privatkunden",
+        exact: true,
+      }),
+    })
+    .click();
+  await academy
+    .getByRole("button")
+    .filter({
+      has: page.getByRole("heading", { name: "Grundlagen", exact: true }),
+    })
+    .click();
+  const materials = academy.getByRole("region", {
+    name: "Unterlagen: Recht und Absicherung Privatkunden · Grundlagen",
+    exact: true,
+  });
+  await expect(materials).toBeVisible();
+  await expect(
+    materials.getByText(/Ein Upload erstellt noch kein Quiz/),
+  ).toBeVisible();
+  await expect(
+    materials.getByText(/Im Demo-Modus sind keine Dokumente hinterlegt/),
+  ).toBeVisible();
+  await expect(
+    materials.getByRole("button", { name: "Dokument hochladen", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    academy.getByRole("button", { name: "Quiz starten", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    academy.getByText("Aktuell ist kein Quiz verfügbar."),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("academy navigates source-pending areas and finishes a lesson without inventing progress", async ({
   page,
 }, info) => {
@@ -190,4 +245,3 @@ test("weekly grid includes evening hours and a visible 22:00 boundary", async ({
     ),
   ).toBe(true);
 });
-

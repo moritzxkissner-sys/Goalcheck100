@@ -35,6 +35,7 @@ import {
   type AcademyProgressInput,
 } from "@/lib/academy";
 import styles from "./insure-quiz.module.css";
+import TrainingDocuments from "./training-documents";
 
 type Group = "specialist" | "salespower";
 type AcademyDocument = {
@@ -92,11 +93,12 @@ export default function InsureQuiz({
     <Academy
       key={`${demo ? "demo" : "account"}:${userId ?? "current"}`}
       demo={demo}
+      userId={userId}
     />
   );
 }
 
-function Academy({ demo }: { demo: boolean }) {
+function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
   const [group, setGroup] = useState<Group | null>(null);
   const [trackId, setTrackId] = useState<string | null>(null);
   const [moduleId, setModuleId] = useState<string | null>(null);
@@ -707,6 +709,16 @@ function Academy({ demo }: { demo: boolean }) {
               </aside>
             </div>
           )}
+          {lessonModule?.id === "specialist-privatkunden-grundlagen" &&
+            !round &&
+            (demo || userId) && (
+              <TrainingDocuments
+                key={lessonModule.id}
+                userId={userId ?? "demo"}
+                demo={demo}
+                moduleId={lessonModule.id}
+              />
+            )}
           {lessonModule && round && !round.completed && current && (
             <article className={`${styles.panel} ${styles.quizPanel}`}>
               <div className={styles.quizTop}>
@@ -934,4 +946,3 @@ function Academy({ demo }: { demo: boolean }) {
     </section>
   );
 }
-

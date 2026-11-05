@@ -20,7 +20,7 @@ test("team calendar filters members, navigates months and renders a new absence"
   for (const name of [
     "Berin Pretzer",
     "Steven Prell",
-    "Vanessa Holzinger",
+    "Vanessa Schmitt",
     "Yuliia Solianyk",
     "Alina Dalga",
     "Sameena Schlegelmilch",

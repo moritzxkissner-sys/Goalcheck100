@@ -46,7 +46,7 @@ export function demoData(month = currentMonth()): DashboardData {
     calendarMembers: [
       { id: "demo-you", full_name: "Berin Pretzer" },
       { id: "demo-steven", full_name: "Steven Prell" },
-      { id: "demo-vanessa", full_name: "Vanessa Holzinger" },
+      { id: "demo-vanessa", full_name: "Vanessa Schmitt" },
       { id: "demo-julia", full_name: "Yuliia Solianyk" },
       { id: "demo-alina", full_name: "Alina Dalga" },
       { id: "demo-sameena", full_name: "Sameena Schlegelmilch" },
@@ -98,7 +98,7 @@ export function demoData(month = currentMonth()): DashboardData {
             .reduce((s, e) => s + e.amount, 0),
         },
         { user_id: "demo-johannes", full_name: "Johannes Bubb", total: 420 },
-        { user_id: "demo-vanessa", full_name: "Vanessa Holzinger", total: 0 },
+        { user_id: "demo-vanessa", full_name: "Vanessa Schmitt", total: 0 },
         { user_id: "demo-alina", full_name: "Alina Dalga", total: 0 },
       ],
     },
@@ -133,7 +133,7 @@ export function demoData(month = currentMonth()): DashboardData {
       },
       {
         user_id: "demo-vanessa",
-        full_name: "Vanessa Holzinger",
+        full_name: "Vanessa Schmitt",
         total: 6800,
         target: 10000,
         entry_count: 6,

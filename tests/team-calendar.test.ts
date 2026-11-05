@@ -61,7 +61,7 @@ test("calendar migration enforces active team visibility and delegated insert ri
     const names = [
       "Steven Prell",
       "Berin Pretzer",
-      "Vanessa Holzinger",
+      "Vanessa Schmitt",
       "Julia Soljanik",
       "Sameena Schlegelmilch",
       "Johannes Bubb",
@@ -123,7 +123,7 @@ test("calendar migration enforces active team visibility and delegated insert ri
       [
         "Steven Prell",
         "Berin Pretzer",
-        "Vanessa Holzinger",
+        "Vanessa Schmitt",
         "Yuliia Solianyk",
         "Sameena Schlegelmilch",
         "Johannes Bubb",

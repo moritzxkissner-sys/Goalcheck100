@@ -8,7 +8,8 @@ InsureQuiz-Fragen. Die übrigen sieben Module warten auf Schulungsunterlagen.
 Die Übungen stellen keine offizielle Zertifizierung dar.
 
 Interne PDFs bleiben im privaten `training-documents`-Bucket. Bestehende
-Kalenderverwalter können Metadaten, Modulzuordnung und Fragenentwürfe pflegen.
+Dokumentenverwalter (`can_manage_training_documents`) können Metadaten,
+Modulzuordnung und Fragenentwürfe pflegen. Kalenderrechte allein reichen nicht.
 Alle aktiven Mitglieder behalten ihren vorhandenen Dokumentenzugriff.
 Freigegebene, aktuell gültige Dokumente erscheinen bei ihrem zugeordneten
 Lernmodul. Referenzierte Dokumentversionen sind unveränderlich; neue Versionen
@@ -20,6 +21,11 @@ erfasst und geprüft. Eine Freigabe übernimmt sie noch nicht automatisch in den
 laufenden Quizkatalog. Es ist keine externe KI oder Dokumentenübertragung
 eingerichtet. Nach fachlicher Prüfung müssen neue Inhalte bewusst in den
 versionierten Katalog und dessen Speicherregeln übernommen werden.
+
+Im Privatkunden-Grundlagenmodul ist die bestehende Dokumentenverwaltung direkt
+eingebunden. Sie zeigt nur zugeordnete Modulunterlagen und wählt beim Upload
+die Modulzuordnung vor. Die Uploadrechte und Quellenprüfung bleiben unverändert.
+Die Oberfläche weist ausdrücklich darauf hin, dass ein Upload kein Quiz erzeugt.
 
 ## Lernstand
 
@@ -36,11 +42,11 @@ in `learning_progress` wird unverändert separat geführt.
 
 ## Installation
 
-Vor der App-Veröffentlichung beide Migrationen in dieser Reihenfolge anwenden:
+Vor der App-Veröffentlichung diese Migrationen in dieser Reihenfolge anwenden:
 
 1. `202611030001_academy.sql`
 2. `202611030002_academy_documents.sql`
+3. `202611040001_document_management_permission.sql`
 
 Danach `npm test`, `npm run build` und die Playwright-Prüfungen gegen den
 Produktions-Build ausführen. Im Demo-Modus bleiben Änderungen nur im Speicher.
-
