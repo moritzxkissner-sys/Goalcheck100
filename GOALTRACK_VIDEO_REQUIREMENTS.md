@@ -69,7 +69,8 @@ bestanden, einschließlich Modulnavigation, Materialienhinweis und unverändert
 gesperrtem Quiz bei fehlenden Fachquellen. Diese Demo-Tests ersetzen keine
 Prüfung eines echten PDF-Uploads oder fachlich generierter Fragen.
 
-Nach der bestätigten Namenskorrektur zusätzlich alle 45 bestehenden Unit-/
+Abschließend alle zehn Teamkalender-/Lernbereich-Browsertests auf Desktop und
+Smartphone bestanden. Nach der bestätigten Namenskorrektur zusätzlich alle 45 bestehenden Unit-/
 Datenbank-Regeltests sowie Produktionsbuild erfolgreich. Produktiv wurde
 Vanessa Schmitt im Teamkalender, in der Mitarbeiter-Auswahl, Tageswertung und
 Monatsübersicht geprüft; die Profilrechte blieben unverändert.
