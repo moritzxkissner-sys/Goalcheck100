@@ -80,3 +80,47 @@ nicht vor. Die Fachberater-PDFs werden ausdrücklich später behandelt; damit
 bleibt auch die automatische Fragenbereitstellung zurückgestellt. Die neue ZIP
 enthält Videos, keine Fachunterlagen. Zugriff auf ein E-Mail-Postfach liegt nicht
 vor. Es werden weder Zugangsdaten noch fachliche Inhalte erfunden.
+
+## Veröffentlichungsstand
+
+Update #25 wurde nach erfolgreichen GitHub-Prüfungen in `main` übernommen
+(`c71b9d765c5d239903afbcb62efd6a78c6a109c2`). Die Vercel-Zeitüberschreitungen
+vom 05.11. sind behoben. Am 06.11.2026 wurde auf Nutzerwunsch derselbe geprüfte
+Commit erneut produktiv veröffentlicht:
+`dpl_4rX4kJr8hCMksJHDoKc8M8YEPkBk`, Status READY, Alias `goalcheck.vercel.app`,
+kein Aliasfehler. Der direkte Privatkunden-Modulunterlagenbereich wurde in der
+angemeldeten Live-App sichtbar geprüft. Vanessas Anzeigename ist produktiv
+Vanessa Schmitt. Fachunterlagen/Fragen sowie Lilli-/Yuliia-Registrierung bleiben
+wie vereinbart zurückgestellt.
+
+## Ergänzung 06.11.2026 – Privatkunden-Quiz aus Fachunterlagen
+
+Die ZIP `Unterlagen_Für_GoalTrack_Quiz_.zip` enthält sechs PDF-Quellen mit
+insgesamt 722 Seiten: ARB 2026 (03.2026), Rechtsschutz-Tarif 2026 (03.2026),
+Recht&Heim 2026 (09.2026), Haftpflicht-Schutz 2021, Unfall-Schutz AUB 2024
+(02.2024) und Existenz-Schutz AESV 2025 (03.2025). Texte wurden lokal extrahiert;
+die für die Fragen verwendeten Abschnitte wurden geprüft und wichtige
+Quellseiten zusätzlich gerendert. Es wurde keine vollständige fachliche Prüfung
+aller Vertragsbedingungen behauptet. Originaldateien werden nicht veröffentlicht.
+
+GT-05: 36 kuratierte Übungsfragen (29 Einfach-/7 Mehrfachauswahl) für das bestehende
+Privatkunden-Grundlagenmodul erstellt. Jede Frage nennt Erklärung, Dokumentstand,
+PDF-Seite und Abschnitt. Quellenabgleich im zweiten Fachagenten ohne sachliche
+Korrekturen abgeschlossen. Keine laufende externe KI oder kostenpflichtige
+Schnittstelle eingerichtet. Zusätzliche Uploads erzeugen weiterhin nicht
+automatisch neue Fragen. Das ist keine offizielle Zertifizierungsprüfung.
+
+Neue Modulversion `2026-11-06-privatkunden-v1`; vorhandene SalesPower-Fragen und
+ihre Version bleiben unverändert. Die Datenbankfunktion wird gezielt um die
+36-Fragen-Struktur erweitert; keine Änderung an Zugriffspolicies oder bestehenden
+Lernständen. Original-PDFs sind damit noch nicht im Dokumentencenter abgelegt.
+
+Prüfung: Quellen-/Antwortprüfung, TypeScript, ESLint und Produktionsbuild
+erfolgreich; alle 46 Unit-/Datenbanktests und acht Lernbereich-Browsertests
+erfolgreich. Der neue Fragensatz wurde auf Desktop und Smartphone bis zum
+36-Fragen-Abschluss mit Quellenanzeige und korrekter Auswertung durchgespielt.
+
+GT-03: Nutzer hat die unterschiedlichen E-Mail-Adressen von Yuliia und Lilli
+bestätigt. Die produktive Registrierungssuche ergab für beide noch kein Konto.
+Passwort und manuelle Registrierung erfolgen durch den Nutzer wie bei Alina;
+Teamaktivierung erst nach tatsächlicher Registrierung und Zugriffsfreigabe.

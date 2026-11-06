@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { privateCustomerQuestions } from "../../lib/academy-private-customers";
 
 async function openAcademy(page: Page) {
   await page.goto("/demo", { waitUntil: "networkidle" });
@@ -10,7 +11,7 @@ async function openAcademy(page: Page) {
   return page.getByRole("region", { name: "InsureQuiz Lernbereich" });
 }
 
-test("private-customer module shows its materials area without enabling uploads or a quiz in demo", async ({
+test("private-customer module practices sourced questions and keeps materials uploads disabled in demo", async ({
   page,
 }) => {
   const academy = await openAcademy(page);
@@ -44,7 +45,7 @@ test("private-customer module shows its materials area without enabling uploads 
   });
   await expect(materials).toBeVisible();
   await expect(
-    materials.getByText(/Ein Upload erstellt noch kein Quiz/),
+    materials.getByText(/Neue Uploads ändern das Übungsquiz nicht automatisch/),
   ).toBeVisible();
   await expect(
     materials.getByText(/Im Demo-Modus sind keine Dokumente hinterlegt/),
@@ -54,10 +55,36 @@ test("private-customer module shows its materials area without enabling uploads 
   ).toHaveCount(0);
   await expect(
     academy.getByRole("button", { name: "Quiz starten", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    academy.getByText("Aktuell ist kein Quiz verfügbar."),
   ).toBeVisible();
+  await academy
+    .getByRole("button", { name: "Quiz starten", exact: true })
+    .click();
+  for (const question of privateCustomerQuestions) {
+    await expect(
+      academy.getByRole("heading", { name: question.prompt, exact: true }),
+    ).toBeVisible();
+    const choices = academy.getByRole(
+      question.correctAnswers.length > 1 ? "checkbox" : "radio",
+    );
+    for (const index of question.correctAnswers)
+      await choices.nth(index).check();
+    await academy
+      .getByRole("button", { name: "Antwort prüfen", exact: true })
+      .click();
+    await expect(academy.getByRole("status")).toContainText(
+      "Richtig beantwortet",
+    );
+    await expect(academy.getByRole("status")).toContainText(
+      question.source.title,
+    );
+    await academy
+      .getByRole("button", { name: /Nächste Frage|Ergebnis anzeigen/ })
+      .click();
+  }
+  await expect(
+    academy.getByRole("heading", { name: "Lernmodul abgeschlossen" }),
+  ).toBeVisible();
+  await expect(academy.getByText("100%", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

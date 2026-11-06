@@ -5,7 +5,7 @@ import {
   validOrigin,
 } from "@/lib/offers-api";
 import {
-  academyCatalogVersion,
+  getAcademyModuleVersion,
   parseAcademyProgress,
   scoreAcademyAnswers,
   type AcademyAnswers,
@@ -22,7 +22,7 @@ function scored<
   return {
     ...row,
     score:
-      row.catalog_version === academyCatalogVersion
+      row.catalog_version === getAcademyModuleVersion(row.module_id)
         ? scoreAcademyAnswers(row.module_id, row.answers)
         : { correct: 0, total: 0, answered: 0, percentage: 0 },
   };
@@ -77,7 +77,7 @@ export async function PUT(request: Request) {
     p_answers: input.answers,
     p_position: input.position,
     p_completed: input.completed,
-    p_catalog_version: academyCatalogVersion,
+    p_catalog_version: getAcademyModuleVersion(input.module_id),
   });
   if (error)
     return offerError(
@@ -111,4 +111,3 @@ export async function PUT(request: Request) {
     { headers: offerHeaders },
   );
 }
-

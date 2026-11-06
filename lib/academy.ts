@@ -1,4 +1,14 @@
+import {
+  privateCustomerQuestions,
+  privateCustomerLearningContent,
+} from "./academy-private-customers";
+
 export const academyCatalogVersion = "2026-11-03-v1";
+export function getAcademyModuleVersion(moduleId: string) {
+  return moduleId === "specialist-privatkunden-grundlagen"
+    ? "2026-11-06-privatkunden-v1"
+    : academyCatalogVersion;
+}
 export type AcademyQuestion = {
   id: string;
   topic: string;
@@ -32,6 +42,7 @@ export type AcademyScore = {
   percentage: number;
 };
 export type AcademyProgressInput = {
+  catalog_version?: string;
   module_id: string;
   attempt_id: string;
   answers: AcademyAnswers;
@@ -186,6 +197,7 @@ export const academyQuestions: AcademyQuestion[] = [
       title: "GoalTrack InsureQuiz · Erklärung zu Versicherungsbedingungen",
     },
   },
+  ...privateCustomerQuestions,
 ];
 function unavailable(
   id: string,
@@ -240,11 +252,25 @@ function available(
   };
 }
 export const academyTracks: AcademyTrack[] = [
-  unavailable(
-    "specialist-privatkunden",
-    "specialist",
-    "Recht und Absicherung Privatkunden",
-  ),
+  {
+    id: "specialist-privatkunden",
+    group: "specialist",
+    title: "Recht und Absicherung Privatkunden",
+    description:
+      "Wissen aus den bereitgestellten Schulungsunterlagen mit Multiple-Choice-Fragen festigen.",
+    accent: "violet",
+    modules: [
+      {
+        id: "specialist-privatkunden-grundlagen",
+        title: "Grundlagen",
+        description:
+          "Recht und Absicherung Privatkunden · Quellen lesen und Wissen prüfen.",
+        content: privateCustomerLearningContent,
+        questionIds: privateCustomerQuestions.map((question) => question.id),
+        requiresDocuments: false,
+      },
+    ],
+  },
   unavailable(
     "specialist-recht-gewerbe",
     "specialist",
@@ -329,6 +355,14 @@ export function parseAcademyProgress(
   )
     return null;
   const lesson = getAcademyModule(input.module_id);
+  const version = getAcademyModuleVersion(input.module_id);
+  if (
+    (input.catalog_version !== undefined &&
+      input.catalog_version !== version) ||
+    (input.module_id === "specialist-privatkunden-grundlagen" &&
+      input.catalog_version !== version)
+  )
+    return null;
   if (
     !lesson ||
     lesson.requiresDocuments ||
@@ -371,6 +405,7 @@ export function parseAcademyProgress(
     return null;
   if (input.completed && position !== lesson.questionIds.length) return null;
   return {
+    catalog_version: version,
     module_id: input.module_id,
     attempt_id: input.attempt_id,
     answers,
@@ -391,7 +426,7 @@ export function summarizeAcademyProgress(
       progress.some(
         (row) =>
           row.module_id === lesson.id &&
-          row.catalog_version === academyCatalogVersion &&
+          row.catalog_version === getAcademyModuleVersion(row.module_id) &&
           row.completed &&
           !!parseAcademyProgress(row),
       ),
@@ -400,7 +435,7 @@ export function summarizeAcademyProgress(
     progress.some(
       (row) =>
         row.module_id === lesson.id &&
-        row.catalog_version === academyCatalogVersion,
+        row.catalog_version === getAcademyModuleVersion(row.module_id),
     ),
   ).length;
   return {
@@ -412,4 +447,3 @@ export function summarizeAcademyProgress(
     started,
   };
 }
-

@@ -155,9 +155,9 @@ export default function TrainingDocuments({
           </p>
           {moduleTitle && (
             <p>
-              Ein Upload erstellt noch kein Quiz. Quellen und Fragenentwürfe
-              müssen fachlich geprüft und freigegeben werden; die Bereitstellung
-              als Übungsquiz steht noch aus.
+              Neue Uploads ändern das Übungsquiz nicht automatisch. Für
+              zusätzliche Fragen müssen Quellen und Fragenentwürfe geprüft und
+              in einer neuen Quizversion bereitgestellt werden.
             </p>
           )}
         </div>
