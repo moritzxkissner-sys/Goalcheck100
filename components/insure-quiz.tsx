@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 import {
-  academyCatalogVersion,
+  getAcademyModuleVersion,
   academyQuestions,
   academyTracks,
   scoreAcademyAnswers,
@@ -171,7 +171,9 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
   const checked = !!round && round.answers[round.position] != null;
   const completedIds = new Set(
     [...progress.filter((row) => row.completed), ...attempts]
-      .filter((row) => row.catalog_version === academyCatalogVersion)
+      .filter(
+        (row) => row.catalog_version === getAcademyModuleVersion(row.module_id),
+      )
       .map((row) => row.module_id),
   );
   const count = (ids: string[]) =>
@@ -185,7 +187,7 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
       : progress.some(
             (row) =>
               row.module_id === id &&
-              row.catalog_version === academyCatalogVersion,
+              row.catalog_version === getAcademyModuleVersion(row.module_id),
           )
         ? "In Bearbeitung"
         : "Offen";
@@ -208,7 +210,7 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
       if (demo)
         saved = {
           ...input,
-          catalog_version: academyCatalogVersion,
+          catalog_version: getAcademyModuleVersion(input.module_id),
           updated_at: new Date().toISOString(),
           score: scoreAcademyAnswers(input.module_id, input.answers),
         };
@@ -266,7 +268,7 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
     const existing = progress.find(
       (row) =>
         row.module_id === lessonModule.id &&
-        row.catalog_version === academyCatalogVersion,
+        row.catalog_version === getAcademyModuleVersion(row.module_id),
     );
     setSelection([]);
     if (existing && !repeat) {
@@ -274,6 +276,7 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
       return;
     }
     void save({
+      catalog_version: getAcademyModuleVersion(lessonModule.id),
       module_id: lessonModule.id,
       attempt_id: crypto.randomUUID(),
       answers: questions.map(() => null),
@@ -302,7 +305,7 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
   const history = attempts.filter(
     (item) =>
       item.module_id === moduleId &&
-      item.catalog_version === academyCatalogVersion,
+      item.catalog_version === getAcademyModuleVersion(item.module_id),
   );
 
   return (
@@ -622,6 +625,8 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
                         : progress.some(
                               (row) =>
                                 row.module_id === lessonModule.id &&
+                                row.catalog_version ===
+                                  getAcademyModuleVersion(row.module_id) &&
                                 !row.completed,
                             )
                           ? "Quiz fortsetzen"
@@ -669,9 +674,9 @@ function Academy({ demo, userId }: { demo: boolean; userId?: string }) {
                 ) : (
                   <>
                     <p>
-                      Allgemeine Grundlagen aus dem bisherigen GoalTrack
-                      InsureQuiz. Diese Übungen ersetzen keine
-                      produktspezifischen Schulungsunterlagen.
+                      {lessonModule.id === "specialist-privatkunden-grundlagen"
+                        ? "Übungsfragen aus den bereitgestellten Schulungs-PDFs. Jede Erklärung nennt ihre Quelle. Maßgeblich sind die jeweiligen Unterlagen und Vertragsbedingungen."
+                        : "Allgemeine Grundlagen aus dem bisherigen GoalTrack InsureQuiz. Diese Übungen ersetzen keine produktspezifischen Schulungsunterlagen."}
                     </p>
                     <ul className={styles.sources}>
                       {Array.from(

@@ -6,6 +6,8 @@ import {
   academyTracks,
   academyQuestions,
   academyCatalogVersion,
+  getAcademyModule,
+  getAcademyModuleVersion,
   parseAcademyProgress,
   scoreAcademyAnswers,
   summarizeAcademyProgress,
@@ -15,6 +17,11 @@ const A = "00000000-0000-4000-8000-000000000001";
 const B = "00000000-0000-4000-8000-000000000002";
 const attempt = "00000000-0000-4000-8000-000000000003";
 const moduleId = "salespower-haftpflicht-grundlagen";
+const privateModuleId = "specialist-privatkunden-grundlagen";
+const privateQuestions = () =>
+  getAcademyModule(privateModuleId)!.questionIds.map((id) =>
+    academyQuestions.find((question) => question.id === id)!,
+  );
 const complete = {
   module_id: moduleId,
   attempt_id: attempt,
@@ -59,6 +66,58 @@ test("single and multi-select score exact sets only", () => {
   assert.equal(scoreAcademyAnswers(moduleId, [[1], [0, 1, 2]]).correct, 1);
   assert.equal(scoreAcademyAnswers(moduleId, [[1], [0, 0]]).correct, 1);
   assert.equal(scoreAcademyAnswers(moduleId, [null, null]).answered, 0);
+});
+
+test("private-customer quiz pins its source bank version without changing SalesPower", () => {
+  assert.equal(academyCatalogVersion, "2026-11-03-v1");
+  assert.equal(getAcademyModuleVersion(moduleId), academyCatalogVersion);
+  assert.equal(
+    getAcademyModuleVersion(privateModuleId),
+    "2026-11-06-privatkunden-v1",
+  );
+  assert.equal(getAcademyModule(privateModuleId)!.requiresDocuments, false);
+  const questions = privateQuestions();
+  assert.ok(questions.length > 0);
+  assert.equal(
+    new Set(academyQuestions.map((question) => question.id)).size,
+    academyQuestions.length,
+  );
+  for (const question of questions) {
+    assert.match(question.id, /^pk-/);
+    assert.ok(question.source.title.trim());
+    assert.ok(question.explanation.trim());
+  }
+  const input = {
+    module_id: privateModuleId,
+    attempt_id: attempt,
+    catalog_version: getAcademyModuleVersion(privateModuleId),
+    answers: questions.map((question) => question.correctAnswers),
+    completed: true,
+    position: questions.length,
+  };
+  assert.ok(parseAcademyProgress(input));
+  assert.equal(
+    scoreAcademyAnswers(privateModuleId, input.answers).percentage,
+    100,
+  );
+  assert.equal(
+    parseAcademyProgress({ ...input, catalog_version: academyCatalogVersion }),
+    null,
+  );
+  assert.equal(
+    parseAcademyProgress({ ...input, catalog_version: undefined }),
+    null,
+  );
+  assert.equal(
+    summarizeAcademyProgress([
+      {
+        ...input,
+        updated_at: new Date().toISOString(),
+        score: scoreAcademyAnswers(privateModuleId, input.answers),
+      },
+    ]).completed,
+    1,
+  );
 });
 test("progress rejects malformed, unavailable and incomplete completions", () => {
   assert.ok(parseAcademyProgress(complete));
@@ -163,6 +222,15 @@ test("database keeps learning private and completion atomic and idempotent", asy
         ],
       );
     await asUser(A, () => save());
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202611060001_academy_private_customers.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     await asUser(A, () => save());
     assert.equal(
       (await asUser(A, () => db.query("select * from public.academy_attempts")))
@@ -217,6 +285,72 @@ test("database keeps learning private and completion atomic and idempotent", asy
         .rows.length,
       2,
     );
+    const privateAnswers = privateQuestions().map(
+      (question) => question.correctAnswers,
+    );
+    const savePrivate = (
+      answers: (number[] | null)[] = privateAnswers,
+      version = getAcademyModuleVersion(privateModuleId),
+      id = "00000000-0000-4000-8000-000000000004",
+    ) =>
+      db.query(
+        "select * from public.save_academy_progress($1,$2,$3::jsonb,$4,true,$5)",
+        [
+          privateModuleId,
+          id,
+          JSON.stringify(answers),
+          privateAnswers.length,
+          version,
+        ],
+      );
+    await asUser(A, () =>
+      db.query(
+        "select * from public.save_academy_progress($1,$2,$3::jsonb,0,false,$4)",
+        [
+          privateModuleId,
+          "00000000-0000-4000-8000-000000000004",
+          JSON.stringify(privateAnswers.map(() => null)),
+          getAcademyModuleVersion(privateModuleId),
+        ],
+      ),
+    );
+    await asUser(A, () => savePrivate());
+    await asUser(A, () => savePrivate());
+    const changedAnswers = privateAnswers.map((answer) => [...answer]);
+    changedAnswers[0] = [changedAnswers[0][0] === 0 ? 1 : 0];
+    await assert.rejects(
+      asUser(A, () => savePrivate(changedAnswers)),
+      /immutable/,
+    );
+    await assert.rejects(
+      asUser(A, () => savePrivate(privateAnswers, academyCatalogVersion)),
+      /Invalid academy state/,
+    );
+    for (const [index, question] of privateQuestions().entries()) {
+      const invalidAnswers = privateAnswers.map((answer) => [...answer]);
+      invalidAnswers[index] = [question.choices.length];
+      await assert.rejects(
+        asUser(A, () => savePrivate(invalidAnswers)),
+        /selection values/,
+      );
+      if (question.correctAnswers.length === 1) {
+        invalidAnswers[index] = [0, 1];
+        await assert.rejects(
+          asUser(A, () => savePrivate(invalidAnswers)),
+          /selection count/,
+        );
+      }
+    }
+    assert.equal(
+      (await asUser(A, () => db.query("select * from public.academy_attempts")))
+        .rows.length,
+      3,
+    );
+    assert.equal(
+      (await asUser(B, () => db.query("select * from public.academy_attempts")))
+        .rows.length,
+      0,
+    );
     await db.query("update public.profiles set active=false where id=$1", [A]);
     assert.equal(
       (await asUser(A, () => db.query("select * from public.academy_progress")))
@@ -231,4 +365,3 @@ test("database keeps learning private and completion atomic and idempotent", asy
     await db.close();
   }
 });
-
