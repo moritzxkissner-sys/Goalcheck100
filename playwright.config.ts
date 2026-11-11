@@ -9,7 +9,9 @@ export default defineConfig({
   use: {
     baseURL,
     headless: true,
-    channel: process.platform === "win32" ? "msedge" : undefined,
+    channel:
+      process.env.PLAYWRIGHT_CHANNEL ??
+      (process.platform === "win32" ? "msedge" : undefined),
     trace: "retain-on-failure",
   },
   projects: [

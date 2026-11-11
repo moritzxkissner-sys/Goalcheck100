@@ -7,12 +7,114 @@ import {
   isoToBerlinLocal,
   parseFollowUpInput,
   parseFollowUpRange,
+  parseFollowUpSearch,
+  followUpSearchFilter,
 } from "../lib/follow-ups";
 
 const A = "00000000-0000-4000-8000-000000000001";
 const B = "00000000-0000-4000-8000-000000000002";
 const C = "00000000-0000-4000-8000-000000000003";
 const D = "00000000-0000-4000-8000-000000000004";
+
+test("appointment types accept explicit values without guessing legacy types", () => {
+  const appointment = {
+    title: "Telefon Follow-up",
+    customer_name: "Kundin",
+    offer_subject: "Angebot",
+    start_time: "2026-10-27T08:00:00Z",
+    end_time: "2026-10-27T08:30:00Z",
+  };
+  assert.equal("appointment_type" in parseFollowUpInput(appointment)!, false);
+  for (const appointment_type of [null, "follow_up", "phone"])
+    assert.equal(
+      parseFollowUpInput({ ...appointment, appointment_type })
+        ?.appointment_type,
+      appointment_type,
+    );
+  for (const appointment_type of ["", "Telefon", "unknown", 1, {}, []])
+    assert.equal(
+      parseFollowUpInput({ ...appointment, appointment_type }),
+      null,
+    );
+});
+
+test("global search validates independent Berlin date limits and bounded pages", () => {
+  const parse = (params: string) =>
+    parseFollowUpSearch(new URLSearchParams(params));
+  assert.deepEqual(parse(""), {
+    q: "",
+    type: null,
+    from: undefined,
+    to: undefined,
+    page: 0,
+  });
+  assert.deepEqual(parse("type=all&from=&to=&q=&page=0"), parse(""));
+  assert.equal(parse("from=2026-03-29")?.from, "2026-03-28T23:00:00.000Z");
+  assert.equal(parse("to=2026-03-29")?.to, "2026-03-29T22:00:00.000Z");
+  assert.ok(
+    parse("from=2020-01-01&to=2029-12-31&type=phone&page=12&q=Telefon"),
+  );
+  assert.ok(parse("from=2026-10-25&to=2026-10-25&type=follow_up"));
+  for (const params of [
+    "q=x",
+    `q=${"a".repeat(121)}`,
+    "type=other",
+    "page=-1",
+    "page=0.5",
+    "page=1000000",
+    "page=01",
+    "from=2026-02-30",
+    "to=2026-13-01",
+    "from=2026-11-02&to=2026-11-01",
+  ])
+    assert.equal(parse(params), null, params);
+});
+
+test("search includes human type labels without classifying unknown appointments", () => {
+  assert.match(followUpSearchFilter("Telefon"), /appointment_type\.eq\.phone/);
+  assert.match(
+    followUpSearchFilter("FOLLOW UP"),
+    /appointment_type\.eq\.follow_up/,
+  );
+  assert.match(
+    followUpSearchFilter("Follow-up"),
+    /appointment_type\.eq\.follow_up/,
+  );
+  assert.doesNotMatch(followUpSearchFilter("Kundin"), /appointment_type/);
+});
+
+test("search quotes PostgREST syntax and treats regex/LIKE metacharacters literally", async () => {
+  const db = new PGlite();
+  try {
+    for (const q of [
+      "Acme, Inc. (Berlin)",
+      '"),id.not.is.null',
+      "%_*",
+      "a\\b",
+      "[a-z]+?^$|.*",
+    ]) {
+      const filter = followUpSearchFilter(q);
+      const quoted = filter.match(
+        /^customer_name\.imatch\.("(?:\\.|[^"\\])*")/,
+      )?.[1];
+      assert.ok(quoted);
+      const literalRegex = JSON.parse(quoted) as string;
+      const { rows } = await db.query<{ matched: boolean; unrelated: boolean }>(
+        "select $1 ~* $2 as matched, 'unrelated customer' ~* $2 as unrelated",
+        [q, literalRegex],
+      );
+      assert.deepEqual(rows, [{ matched: true, unrelated: false }], q);
+      assert.equal(
+        filter
+          .slice(`customer_name.imatch.${quoted}`.length)
+          .startsWith(",title.imatch."),
+        true,
+      );
+    }
+  } finally {
+    await db.close();
+  }
+});
 
 test("follow-up assignees are optional and must be UUIDs", () => {
   const appointment = {
@@ -191,6 +293,63 @@ test("follow-up migrations preserve appointments and enforce creator/recipient d
         ),
       );
     }
+    const policiesBefore = await db.query(
+      "select policyname,qual,with_check from pg_policies where tablename = 'follow_up_tasks' order by policyname",
+    );
+    const grantsBefore = await db.query(
+      "select grantee,privilege_type from information_schema.role_table_grants where table_name = 'follow_up_tasks' order by grantee,privilege_type",
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202611110001_follow_up_appointment_types.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select distinct appointment_type from public.follow_up_tasks",
+        )
+      ).rows,
+      [{ appointment_type: null }],
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select policyname,qual,with_check from pg_policies where tablename = 'follow_up_tasks' order by policyname",
+        )
+      ).rows,
+      policiesBefore.rows,
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select grantee,privilege_type from information_schema.role_table_grants where table_name = 'follow_up_tasks' order by grantee,privilege_type",
+        )
+      ).rows,
+      grantsBefore.rows,
+    );
+    for (const appointmentType of ["phone", "follow_up", null]) {
+      await db.query(
+        "update public.follow_up_tasks set appointment_type = $1",
+        [appointmentType],
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select distinct appointment_type from public.follow_up_tasks",
+          )
+        ).rows,
+        [{ appointment_type: appointmentType }],
+      );
+    }
+    await assert.rejects(
+      db.query("update public.follow_up_tasks set appointment_type = 'other'"),
+      /follow_up_appointment_type_check/,
+    );
     await db.query(
       "insert into auth.users(id,email) values ($1,'c@test.invalid'),($2,'d@test.invalid')",
       [C, D],
@@ -397,4 +556,3 @@ test("follow-up migrations preserve appointments and enforce creator/recipient d
     await db.close();
   }
 });
-

@@ -8,7 +8,14 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Phone,
+  Plus,
+  X,
+} from "lucide-react";
 import {
   berlinLocalToIso,
   isoToBerlinLocal,
@@ -16,6 +23,7 @@ import {
   type FollowUpTask,
 } from "@/lib/follow-ups";
 import styles from "./follow-up-calendar.module.css";
+import FollowUpSearch from "./follow-up-search";
 import {
   CALENDAR_END_HOUR,
   CALENDAR_START_HOUR,
@@ -25,12 +33,14 @@ import {
 import { CALENDAR_HOUR_HEIGHT, layoutCalendarDay } from "@/lib/calendar-layout";
 
 type View = "week" | "month" | "list";
+type AppointmentType = "follow_up" | "phone";
 type Assignment = {
   currentUserId: string;
   canAssign: boolean;
   members: { id: string; full_name: string }[];
 };
 type Form = {
+  appointment_type: AppointmentType | "";
   assigned_to: string;
   title: string;
   customer_name: string;
@@ -82,11 +92,19 @@ function weekStart(day: string) {
 function dateTitle(day: string) {
   return dayTitle.format(new Date(`${day}T12:00:00Z`));
 }
+function calendarWeek(day: string) {
+  const thursday = new Date(`${shiftDay(weekStart(day), 3)}T12:00:00Z`);
+  const firstDay = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1, 12));
+  return Math.ceil(
+    ((thursday.getTime() - firstDay.getTime()) / 86400000 + 1) / 7,
+  );
+}
 function taskDay(task: FollowUpTask) {
   return isoToBerlinLocal(task.start_time).slice(0, 10);
 }
 function emptyForm(day: string, assignedTo = ""): Form {
   return {
+    appointment_type: "follow_up",
     assigned_to: assignedTo,
     title: "Follow-up",
     customer_name: "",
@@ -100,9 +118,31 @@ function emptyForm(day: string, assignedTo = ""): Form {
   };
 }
 
+function TypeBadge({ task }: { task: FollowUpTask }) {
+  const type = task.appointment_type;
+  return (
+    <span className={styles.typeBadge} data-type={type ?? "unknown"}>
+      {type === "phone" ? (
+        <Phone size={12} aria-hidden="true" />
+      ) : type === "follow_up" ? (
+        <CalendarDays size={12} aria-hidden="true" />
+      ) : (
+        <CalendarDays size={12} aria-hidden="true" />
+      )}
+      {type === "phone"
+        ? "Telefontermin"
+        : type === "follow_up"
+          ? "Follow-up"
+          : "Ohne Terminart"}
+    </span>
+  );
+}
+
 export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   const [anchor, setAnchor] = useState(() => dayFormat.format(new Date()));
   const [view, setView] = useState<View>("week");
+  const [typeFilter, setTypeFilter] = useState<"all" | AppointmentType>("all");
+  const [revision, setRevision] = useState(0);
   const [tasks, setTasks] = useState<FollowUpTask[]>([]);
   const [assignment, setAssignment] = useState<Assignment>({
     currentUserId: "",
@@ -210,6 +250,8 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   const byDay = useMemo(() => {
     const result = new Map<string, FollowUpTask[]>();
     for (const task of tasks) {
+      if (typeFilter !== "all" && task.appointment_type !== typeFilter)
+        continue;
       const day = taskDay(task);
       result.set(day, [...(result.get(day) ?? []), task]);
     }
@@ -217,8 +259,16 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
       entries.sort((a, b) => a.start_time.localeCompare(b.start_time));
     }
     return result;
-  }, [tasks]);
-  const shown = tasks.filter((task) => taskDay(task).startsWith(month));
+  }, [tasks, typeFilter]);
+  const weekTasks = tasks.filter((task) => {
+    const day = taskDay(task);
+    return day >= week[0] && day <= week[6];
+  });
+  const shown = tasks.filter(
+    (task) =>
+      taskDay(task).startsWith(month) &&
+      (typeFilter === "all" || task.appointment_type === typeFilter),
+  );
   const weekLayouts = week.map((day) =>
     layoutCalendarDay(
       (byDay.get(day) ?? []).filter((task) =>
@@ -244,6 +294,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   }
   function openEdit(task: FollowUpTask) {
     setForm({
+      appointment_type: task.appointment_type ?? "",
       assigned_to: task.assigned_to,
       title: task.title,
       customer_name: task.customer_name,
@@ -292,7 +343,12 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
         {
           method: isNew ? "POST" : "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, start_time: start, end_time: end }),
+          body: JSON.stringify({
+            ...form,
+            appointment_type: form.appointment_type || null,
+            start_time: start,
+            end_time: end,
+          }),
         },
       );
       const body = await response.json();
@@ -303,6 +359,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
       setEditor(null);
       setAnchor(form.start_time.slice(0, 10));
       setNotice(isNew ? "Termin eingetragen." : "Termin aktualisiert.");
+      setRevision((value) => value + 1);
       if (form.start_time.slice(0, 7) === month) await load();
     } catch (cause) {
       setError(
@@ -332,6 +389,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
         throw new Error(body.error ?? "Löschen fehlgeschlagen.");
       setEditor(null);
       setNotice("Termin gelöscht.");
+      setRevision((value) => value + 1);
       await load();
     } catch (cause) {
       setError(
@@ -357,6 +415,17 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
 
   return (
     <div className={styles.workspace}>
+      <FollowUpSearch
+        demo={demo}
+        revision={revision}
+        onSelect={(task) => {
+          setAnchor(taskDay(task));
+          setView("week");
+          setTypeFilter("all");
+          openEdit(task);
+        }}
+      />
+
       <section className={styles.intro}>
         <div>
           <span className={styles.eyebrow}>NACHFASSAKTIONEN</span>
@@ -373,6 +442,53 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
         >
           <Plus size={17} /> Termin eintragen
         </button>
+      </section>
+      <section className={styles.weekSummary} aria-label="Wochenübersicht">
+        <div className={styles.summaryHeading}>
+          <strong>Wochenübersicht · KW {calendarWeek(anchor)}</strong>
+          <span>
+            {dateTitle(week[0])} – {dateTitle(week[6])} · Montag bis Sonntag
+          </span>
+        </div>
+        <div className={styles.statCards} aria-busy={loading}>
+          <div className={styles.statCard}>
+            <CalendarDays size={20} aria-hidden="true" />
+            <div>
+              <strong>{loading ? "…" : weekTasks.length}</strong>
+              <span>Termine gesamt</span>
+            </div>
+          </div>
+          <div className={styles.statCard} data-type="follow_up">
+            <CalendarDays size={20} aria-hidden="true" />
+            <div>
+              <strong>
+                {loading
+                  ? "…"
+                  : weekTasks.filter(
+                      (task) => task.appointment_type === "follow_up",
+                    ).length}
+              </strong>
+              <span>Follow-ups</span>
+            </div>
+          </div>
+          <div className={styles.statCard} data-type="phone">
+            <Phone size={20} aria-hidden="true" />
+            <div>
+              <strong>
+                {loading
+                  ? "…"
+                  : weekTasks.filter(
+                      (task) => task.appointment_type === "phone",
+                    ).length}
+              </strong>
+              <span>Telefontermine</span>
+            </div>
+          </div>
+        </div>
+        <p>
+          Alle Termine der gewählten Woche, unabhängig von Suche und
+          Terminart-Filter. Termine ohne Terminart zählen zur Gesamtzahl.
+        </p>
       </section>
       {demo && (
         <p className={styles.info}>
@@ -399,6 +515,32 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
           <div className={styles.title}>
             <CalendarDays size={21} />
             <strong>{header}</strong>
+          </div>
+          <div
+            className={styles.typeFilter}
+            role="group"
+            aria-label="Terminart"
+          >
+            {(["all", "follow_up", "phone"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                data-type={type}
+                aria-pressed={typeFilter === type}
+                onClick={() => setTypeFilter(type)}
+              >
+                {type === "follow_up" ? (
+                  <CalendarDays size={14} aria-hidden="true" />
+                ) : type === "phone" ? (
+                  <Phone size={14} aria-hidden="true" />
+                ) : null}
+                {type === "all"
+                  ? "Alle"
+                  : type === "follow_up"
+                    ? "Follow Up"
+                    : "Telefon"}
+              </button>
+            ))}
           </div>
           <div className={styles.controls}>
             <button
@@ -498,6 +640,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                           key={task.id}
                           type="button"
                           data-status={task.status}
+                          data-type={task.appointment_type ?? "unknown"}
                           className={styles.event}
                           style={{
                             position: "absolute",
@@ -509,10 +652,13 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                           title={`${timeTitle.format(new Date(task.start_time))}–${timeTitle.format(new Date(task.end_time))} · ${task.customer_name} · ${task.offer_subject} · ${statusName[task.status]}`}
                           onClick={() => openEdit(task)}
                         >
-                          <strong>
-                            {timeTitle.format(new Date(task.start_time))}–
-                            {timeTitle.format(new Date(task.end_time))}
-                          </strong>
+                          <span className={styles.eventHeading}>
+                            <TypeBadge task={task} />
+                            <strong>
+                              {timeTitle.format(new Date(task.start_time))}–
+                              {timeTitle.format(new Date(task.end_time))}
+                            </strong>
+                          </span>
                           <span>{task.customer_name}</span>
                           <small>{task.offer_subject}</small>
                           <small className={styles.eventStatus}>
@@ -537,9 +683,11 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                   .map((task) => (
                     <button
                       className={styles.event}
+                      data-type={task.appointment_type ?? "unknown"}
                       key={task.id}
                       onClick={() => openEdit(task)}
                     >
+                      <TypeBadge task={task} />
                       {dateTitle(taskDay(task))} ·{" "}
                       {timeTitle.format(new Date(task.start_time))} ·{" "}
                       {timeTitle.format(new Date(task.end_time))}
@@ -571,13 +719,17 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                 {(byDay.get(day) ?? []).map((task) => (
                   <button
                     className={styles.event}
+                    data-type={task.appointment_type ?? "unknown"}
                     key={task.id}
                     onClick={() => openEdit(task)}
                   >
-                    <strong>
-                      {timeTitle.format(new Date(task.start_time))}–
-                      {timeTitle.format(new Date(task.end_time))}
-                    </strong>
+                    <span className={styles.eventHeading}>
+                      <TypeBadge task={task} />
+                      <strong>
+                        {timeTitle.format(new Date(task.start_time))}–
+                        {timeTitle.format(new Date(task.end_time))}
+                      </strong>
+                    </span>
                     <span>{task.customer_name}</span>
                     <small>{task.offer_subject}</small>
                     <small>{statusName[task.status]}</small>
@@ -597,6 +749,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                 <button
                   key={task.id}
                   data-status={task.status}
+                  data-type={task.appointment_type ?? "unknown"}
                   className={styles.listRow}
                   onClick={() => openEdit(task)}
                 >
@@ -607,6 +760,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     {timeTitle.format(new Date(task.end_time))}
                   </span>
                   <strong>
+                    <TypeBadge task={task} />
                     {task.customer_name}
                     <small>
                       {task.offer_subject} · {task.title}
@@ -650,6 +804,23 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
               </button>
             </div>
             <form onSubmit={save} className={styles.form}>
+              <label>
+                Terminart
+                <select
+                  value={form.appointment_type}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      appointment_type: event.target.value as
+                        AppointmentType | "",
+                    })
+                  }
+                >
+                  {editor !== "new" && <option value="">Ohne Terminart</option>}
+                  <option value="follow_up">Follow-up</option>
+                  <option value="phone">Telefontermin</option>
+                </select>
+              </label>
               <label>
                 Bezeichnung
                 <input
