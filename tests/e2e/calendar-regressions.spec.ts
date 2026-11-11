@@ -89,6 +89,316 @@ const response = (tasks: FollowUpTask[]) => ({
   members: [{ id: member, full_name: "Test Mitglied" }],
 });
 
+test("weekly type totals stay unfiltered and typed cards remain consistent across views", async ({
+  page,
+}, testInfo) => {
+  const tasks: FollowUpTask[] = [
+    {
+      ...appointment(
+        "follow",
+        "2026-11-04T08:00:00Z",
+        "2026-11-04T08:30:00Z",
+        "Anna Nachfassen",
+      ),
+      appointment_type: "follow_up",
+    },
+    {
+      ...appointment(
+        "phone",
+        "2026-11-05T09:00:00Z",
+        "2026-11-05T09:30:00Z",
+        "Berta Telefon",
+      ),
+      appointment_type: "phone",
+    },
+    appointment(
+      "legacy",
+      "2026-11-06T10:00:00Z",
+      "2026-11-06T10:30:00Z",
+      "Clara Bestand",
+    ),
+    {
+      ...appointment(
+        "outside",
+        "2026-11-11T08:00:00Z",
+        "2026-11-11T08:30:00Z",
+        "Andere Woche",
+      ),
+      appointment_type: "phone",
+    },
+  ];
+  await page.route("**/api/follow-ups?**", (route) =>
+    route.fulfill({ json: response(tasks) }),
+  );
+  await mount(page);
+  const stats = page.getByRole("region", {
+    name: "Wochenübersicht",
+    exact: true,
+  });
+  await expect(stats).toContainText("02.11.");
+  await expect(stats).toContainText("08.11.");
+  await expect(stats.locator('[data-type="follow_up"] strong')).toHaveText("1");
+  await expect(stats.locator('[data-type="phone"] strong')).toHaveText("1");
+  await expect(
+    stats
+      .getByText("Termine gesamt", { exact: true })
+      .locator("..")
+      .locator("strong"),
+  ).toHaveText("3");
+  const calendar = page.getByRole("region", {
+    name: "Follow-up-Kalender",
+    exact: true,
+  });
+  await expect(
+    calendar.getByText("Anna Nachfassen", { exact: true }),
+  ).toBeVisible();
+  const totals = await stats.innerText();
+  await page.getByRole("button", { name: "Telefon", exact: true }).click();
+  await expect(
+    calendar.getByText("Anna Nachfassen", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    calendar.getByText("Clara Bestand", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    calendar.getByText("Berta Telefon", { exact: true }),
+  ).toBeVisible();
+  expect(await stats.innerText()).toBe(totals);
+  for (const view of ["Monat", "Liste", "Woche"]) {
+    await calendar.getByRole("button", { name: view, exact: true }).click();
+    const card = calendar
+      .getByRole("button")
+      .filter({ hasText: "Berta Telefon" });
+    await expect(card).toHaveCount(1);
+    await expect(card).toHaveAttribute("data-type", "phone");
+    await expect(card).toContainText("Telefon");
+  }
+  await page.getByRole("button", { name: "Alle", exact: true }).click();
+  await expect(
+    calendar.getByText("Clara Bestand", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByRole("button").filter({ hasText: "Anna Nachfassen" }),
+  ).toHaveAttribute("data-type", "follow_up");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `artifacts/follow-up-types-${testInfo.project.name}.png`,
+    fullPage: false,
+  });
+});
+
+test("global search combines filters and opens a future or past appointment without changing it", async ({
+  page,
+}, testInfo) => {
+  const future = {
+    ...appointment(
+      "future",
+      "2027-04-16T08:00:00Z",
+      "2027-04-16T08:30:00Z",
+      "Ferne Kundin",
+    ),
+    appointment_type: "phone" as const,
+  };
+  const past = {
+    ...appointment(
+      "past",
+      "2025-02-03T08:00:00Z",
+      "2025-02-03T08:30:00Z",
+      "Früher Kunde",
+    ),
+    appointment_type: "follow_up" as const,
+  };
+  const searches: URL[] = [];
+  let mutations = 0;
+  await page.route("**/api/follow-ups**", async (route) => {
+    if (route.request().method() !== "GET") {
+      mutations++;
+      return route.fulfill({ status: 500 });
+    }
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/search")) {
+      searches.push(url);
+      const q = url.searchParams.get("q") ?? "";
+      return route.fulfill({
+        json: {
+          tasks: q.includes("Ferne")
+            ? [future]
+            : q.includes("Früher")
+              ? [past]
+              : [],
+          hasMore: false,
+        },
+      });
+    }
+    return route.fulfill({
+      json: response(
+        url.searchParams.get("from")?.startsWith("2027") ? [future] : [past],
+      ),
+    });
+  });
+  await mount(page);
+  const search = page.getByPlaceholder("Termine suchen ...");
+  await search.fill("Ferne");
+  const result = page.getByRole("button").filter({ hasText: "Ferne Kundin" });
+  await expect(result).toBeVisible();
+  const initialSearches = searches.length;
+  await page
+    .getByRole("region", { name: "Kalender durchsuchen" })
+    .getByRole("button", { name: "Suchen", exact: true })
+    .click();
+  await expect.poll(() => searches.length).toBeGreaterThan(initialSearches);
+  await result.click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Kundenname", { exact: true }),
+  ).toHaveValue("Ferne Kundin");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Abbrechen", exact: true })
+    .click();
+  const calendar = page.getByRole("region", {
+    name: "Follow-up-Kalender",
+    exact: true,
+  });
+  await expect(calendar).toContainText("12.04.");
+  await expect(calendar).toContainText("18.04.");
+  await search.fill("Früher");
+  await page.getByRole("button").filter({ hasText: "Früher Kunde" }).click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Kundenname", { exact: true }),
+  ).toHaveValue("Früher Kunde");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Abbrechen", exact: true })
+    .click();
+  await search.fill("Kein Treffer");
+  await expect(page.getByText(/Keine.*Termine.*gefunden/)).toBeVisible();
+  const searchPanel = page.getByRole("region", {
+    name: "Kalender durchsuchen",
+  });
+  await searchPanel
+    .getByRole("button", { name: "Filter", exact: true })
+    .click();
+  await searchPanel
+    .getByLabel("Terminart", { exact: true })
+    .selectOption("phone");
+  await searchPanel.getByLabel("Von", { exact: true }).fill("2027-04-01");
+  await searchPanel.getByLabel("Bis", { exact: true }).fill("2027-04-30");
+  await expect
+    .poll(() =>
+      searches.some(
+        (url) =>
+          url.searchParams.get("q") === "Kein Treffer" &&
+          url.searchParams.get("type") === "phone" &&
+          url.searchParams.get("from") === "2027-04-01" &&
+          url.searchParams.get("to") === "2027-04-30",
+      ),
+    )
+    .toBe(true);
+  await searchPanel
+    .getByRole("button", { name: "Zurücksetzen", exact: true })
+    .click();
+  await expect(search).toHaveValue("");
+  await expect(
+    searchPanel.getByLabel("Terminart", { exact: true }),
+  ).toHaveValue("all");
+  await expect(searchPanel.getByLabel("Von", { exact: true })).toHaveValue("");
+  await expect(searchPanel.getByLabel("Bis", { exact: true })).toHaveValue("");
+  expect(searches.some((url) => url.searchParams.get("q") === "Ferne")).toBe(
+    true,
+  );
+  expect(searches.some((url) => url.searchParams.get("q") === "Früher")).toBe(
+    true,
+  );
+  expect(mutations).toBe(0);
+  await page.screenshot({
+    path: `artifacts/follow-up-search-${testInfo.project.name}.png`,
+    fullPage: false,
+  });
+});
+
+test("create, reclassify, reschedule and delete refresh weekly counts without changing legacy types", async ({
+  page,
+}) => {
+  let tasks: FollowUpTask[] = [
+    appointment(
+      "legacy",
+      "2026-11-04T10:00:00Z",
+      "2026-11-04T10:30:00Z",
+      "Bestandskundin",
+    ),
+  ];
+  const payloads: Record<string, unknown>[] = [];
+  await page.route("**/api/follow-ups**", async (route) => {
+    const method = route.request().method();
+    if (method === "GET") return route.fulfill({ json: response(tasks) });
+    if (method === "DELETE") {
+      tasks = tasks.filter((task) => task.id !== "created");
+      return route.fulfill({ json: { ok: true } });
+    }
+    const input = route.request().postDataJSON();
+    payloads.push(input);
+    const task = {
+      ...appointment("created", input.start_time, input.end_time),
+      ...input,
+    };
+    tasks = [...tasks.filter((item) => item.id !== task.id), task];
+    return route.fulfill({ json: { task } });
+  });
+  await mount(page);
+  const stats = page.getByRole("region", {
+    name: "Wochenübersicht",
+    exact: true,
+  });
+  const count = (type: string) => stats.locator(`[data-type="${type}"] strong`);
+  await expect(count("phone")).toHaveText("0");
+  await page
+    .getByRole("button", { name: "Termin eintragen", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Kundenname", { exact: true }).fill("Neue Kundin");
+  await dialog.getByLabel("Worum geht es? / Angebot").fill("Rechtsschutz");
+  await dialog
+    .getByRole("combobox", { name: "Terminart", exact: true })
+    .selectOption("phone");
+  await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(count("phone")).toHaveText("1");
+  const calendar = page.getByRole("region", {
+    name: "Follow-up-Kalender",
+    exact: true,
+  });
+  await calendar.getByRole("button").filter({ hasText: "Neue Kundin" }).click();
+  dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("combobox", { name: "Terminart", exact: true })
+    .selectOption("follow_up");
+  const begin = dialog.getByRole("group", { name: /Beginn/ });
+  const end = dialog.getByRole("group", { name: /Ende/ });
+  await begin.getByLabel("Datum").fill("2026-11-11");
+  await end.getByLabel("Datum").fill("2026-11-11");
+  await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(stats).toContainText("09.11.");
+  await expect(count("phone")).toHaveText("0");
+  await expect(count("follow_up")).toHaveText("1");
+  await calendar.getByRole("button").filter({ hasText: "Neue Kundin" }).click();
+  page.once("dialog", (prompt) => prompt.accept());
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Löschen", exact: true })
+    .click();
+  await expect(count("follow_up")).toHaveText("0");
+  expect(tasks[0].appointment_type).toBeUndefined();
+  expect(payloads.map((payload) => payload.appointment_type)).toEqual([
+    "phone",
+    "follow_up",
+  ]);
+});
+
 test("week cards align to minutes, separate overlaps, show long names and reach the evening", async ({
   page,
 }, testInfo) => {

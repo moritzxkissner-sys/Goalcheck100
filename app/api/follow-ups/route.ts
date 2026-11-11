@@ -5,12 +5,14 @@ import {
   validOfferId,
   validOrigin,
 } from "@/lib/offers-api";
-import { parseFollowUpInput, parseFollowUpRange } from "@/lib/follow-ups";
+import {
+  FOLLOW_UP_COLUMNS as columns,
+  parseFollowUpInput,
+  parseFollowUpRange,
+} from "@/lib/follow-ups";
 import { readCalendarPages } from "@/lib/read-calendar-pages";
 
 export const runtime = "nodejs";
-const columns =
-  "id,owner_id,assigned_to,title,customer_name,customer_email,customer_phone,offer_subject,start_time,end_time,status,notes,created_at,updated_at";
 
 export async function GET(request: Request) {
   const auth = await offerAuth();

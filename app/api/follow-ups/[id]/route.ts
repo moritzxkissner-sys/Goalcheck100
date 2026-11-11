@@ -5,12 +5,13 @@ import {
   validOfferId,
   validOrigin,
 } from "@/lib/offers-api";
-import { parseFollowUpInput } from "@/lib/follow-ups";
+import {
+  FOLLOW_UP_COLUMNS as columns,
+  parseFollowUpInput,
+} from "@/lib/follow-ups";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
-const columns =
-  "id,owner_id,assigned_to,title,customer_name,customer_email,customer_phone,offer_subject,start_time,end_time,status,notes,created_at,updated_at";
 
 export async function PATCH(request: Request, context: Context) {
   const auth = await offerAuth();
@@ -51,4 +52,3 @@ export async function DELETE(request: Request, context: Context) {
   if (!data) return offerError("Termin nicht gefunden.", 404);
   return Response.json({ deleted: true }, { headers: offerHeaders });
 }
-

@@ -1,4 +1,5 @@
 export type FollowUpStatus = "pending" | "completed" | "rescheduled";
+export type AppointmentType = "follow_up" | "phone";
 
 export type FollowUpMember = { id: string; full_name: string };
 
@@ -23,6 +24,7 @@ export type FollowUpTask = {
   start_time: string;
   end_time: string;
   status: FollowUpStatus;
+  appointment_type?: AppointmentType | null;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -89,6 +91,10 @@ export function parseFollowUpInput(value: unknown) {
   const start = new Date(start_time);
   const end = new Date(end_time);
   if (
+    (input.appointment_type !== undefined &&
+      input.appointment_type !== null &&
+      input.appointment_type !== "follow_up" &&
+      input.appointment_type !== "phone") ||
     (input.assigned_to !== undefined &&
       !validFollowUpAssignee(input.assigned_to)) ||
     !title ||
@@ -115,6 +121,9 @@ export function parseFollowUpInput(value: unknown) {
   )
     return null;
   return {
+    ...(input.appointment_type === undefined
+      ? {}
+      : { appointment_type: input.appointment_type as AppointmentType | null }),
     ...(input.assigned_to === undefined
       ? {}
       : { assigned_to: input.assigned_to as string }),
@@ -128,6 +137,73 @@ export function parseFollowUpInput(value: unknown) {
     start_time: start.toISOString(),
     end_time: end.toISOString(),
   };
+}
+
+export const FOLLOW_UP_SEARCH_PAGE_SIZE = 50;
+export const FOLLOW_UP_COLUMNS =
+  "id,owner_id,assigned_to,title,customer_name,customer_email,customer_phone,offer_subject,start_time,end_time,status,appointment_type,notes,created_at,updated_at";
+
+function searchDate(value: string | null, nextDay = false) {
+  if (value === null || value === "") return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (
+    !Number.isFinite(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== value
+  )
+    return null;
+  if (nextDay) date.setUTCDate(date.getUTCDate() + 1);
+  return berlinLocalToIso(`${date.toISOString().slice(0, 10)}T00:00`);
+}
+
+export function parseFollowUpSearch(params: URLSearchParams) {
+  const q = (params.get("q") ?? "").trim();
+  const rawType = params.get("type");
+  const type = rawType === "all" || rawType === "" ? null : rawType;
+  const pageText = params.get("page") ?? "0";
+  const from = searchDate(params.get("from"));
+  const to = searchDate(params.get("to"), true);
+  if (
+    (q.length > 0 && q.length < 2) ||
+    q.length > 120 ||
+    (type !== null && type !== "follow_up" && type !== "phone") ||
+    !/^(0|[1-9]\d{0,5})$/.test(pageText) ||
+    from === null ||
+    to === null ||
+    (from !== undefined && to !== undefined && from >= to)
+  )
+    return null;
+  return {
+    q,
+    type: type as AppointmentType | null,
+    from,
+    to,
+    page: Number(pageText),
+  };
+}
+
+// A literal, case-insensitive regex avoids PostgREST's special * LIKE alias.
+// Quote the entire value so commas/parentheses cannot introduce filter clauses.
+export function followUpSearchFilter(q: string) {
+  const literal = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = `"${literal.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const clauses = [
+    "customer_name",
+    "title",
+    "offer_subject",
+    "customer_email",
+    "customer_phone",
+    "notes",
+  ].map((column) => `${column}.imatch.${pattern}`);
+  const normalized = q.toLocaleLowerCase("de-DE").replace(/[-_\s]+/g, " ");
+  for (const [type, labels] of [
+    ["phone", ["telefon", "telefontermin", "phone"]],
+    ["follow_up", ["follow up", "nachfassen"]],
+  ] as const) {
+    if (labels.some((label) => label.includes(normalized)))
+      clauses.push(`appointment_type.eq.${type}`);
+  }
+  return clauses.join(",");
 }
 
 export function parseFollowUpRange(from: string | null, to: string | null) {
@@ -154,4 +230,3 @@ export function parseFollowUpRange(from: string | null, to: string | null) {
     to: new Date(end.getTime() + 2 * 86400000).toISOString(),
   };
 }
-
