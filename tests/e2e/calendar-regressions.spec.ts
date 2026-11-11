@@ -251,6 +251,7 @@ test("global search combines filters and opens a future or past appointment with
     .getByRole("button", { name: "Suchen", exact: true })
     .click();
   await expect.poll(() => searches.length).toBeGreaterThan(initialSearches);
+  await page.getByRole("button", { name: "Follow Up", exact: true }).click();
   await result.click();
   await expect(
     page.getByRole("dialog").getByLabel("Kundenname", { exact: true }),
@@ -265,6 +266,12 @@ test("global search combines filters and opens a future or past appointment with
   });
   await expect(calendar).toContainText("12.04.");
   await expect(calendar).toContainText("18.04.");
+  await expect(
+    calendar.getByRole("button", { name: "Alle", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    calendar.getByRole("button").filter({ hasText: "Ferne Kundin" }),
+  ).toBeVisible();
   await search.fill("Früher");
   await page.getByRole("button").filter({ hasText: "Früher Kunde" }).click();
   await expect(

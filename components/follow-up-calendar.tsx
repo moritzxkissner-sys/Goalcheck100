@@ -421,6 +421,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
         onSelect={(task) => {
           setAnchor(taskDay(task));
           setView("week");
+          setTypeFilter("all");
           openEdit(task);
         }}
       />
