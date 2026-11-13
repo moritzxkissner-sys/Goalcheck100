@@ -1,6 +1,12 @@
 # Follow-up-Kalender
 
 Der vorhandene Kalender im Angebotsmanager bleibt unabhängig von Angeboten nutzbar.
+Terminkarten bieten zusätzlich die unabhängig gespeicherten Ergebnisse
+„Nicht erschienen“, „Verschiebung gewünscht“ und „Sale“. Es ist jeweils genau ein
+Ergebnis möglich; erneutes Anklicken entfernt es. Der partielle PATCH überträgt
+nur `outcome_status`, niemals Terminzeiten oder den bisherigen Bearbeitungsstatus.
+Eine Verschiebungsanfrage verschiebt keinen Termin und Sale bucht keine BWS.
+Die Aktionsfläche ist in der Kollisionsberechnung der Wochenansicht berücksichtigt.
 Die Wochenübersicht bezieht sich auf Montag bis Sonntag der ausgewählten Woche
 (Europe/Berlin). Sie zählt sämtliche zugänglichen Termine, unabhängig von Suche
 und Terminartfilter. Follow-ups sind grün, Telefontermine gelb; bestehende Termine
@@ -26,6 +32,7 @@ Rückkehr zum Fenster aktualisiert aktive Suchen ereignisgesteuert. Kein Polling
 und keine dauerhafte Ablage von Kundendaten im Browser-Speicher.
 
 Vor Veröffentlichung `202611110001_follow_up_appointment_types.sql` anwenden.
+Für die Ergebnisaktionen anschließend `202611130001_follow_up_outcome.sql` anwenden.
 Die Migration ergänzt ausschließlich eine nullable, eingeschränkte Textspalte.
 Sie klassifiziert keine Bestandsdaten und ändert keine Rechte oder Policies.
 

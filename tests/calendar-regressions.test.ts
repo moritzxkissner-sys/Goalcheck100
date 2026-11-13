@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   layoutCalendarDay,
   CALENDAR_HOUR_HEIGHT,
+  CALENDAR_EVENT_MIN_HEIGHT,
 } from "../lib/calendar-layout";
 import { berlinLocalToIso, type FollowUpTask } from "../lib/follow-ups";
 import { readCalendarPages } from "../lib/read-calendar-pages";
@@ -31,9 +32,12 @@ test("minutes and evening times share one fixed axis, independent of other cards
   const evening = task("b", "21:00", "22:00");
   const layout = layoutCalendarDay([evening, morning]);
   assert.equal(layout[0].top, 1.5 * CALENDAR_HOUR_HEIGHT);
-  assert.equal(layout[0].height, CALENDAR_HOUR_HEIGHT);
+  assert.equal(layout[0].height, CALENDAR_EVENT_MIN_HEIGHT);
   assert.equal(layout[1].top, 13 * CALENDAR_HOUR_HEIGHT);
-  assert.equal(layout[1].top + layout[1].height, 14 * CALENDAR_HOUR_HEIGHT);
+  assert.equal(
+    layout[1].top + layout[1].height,
+    13 * CALENDAR_HOUR_HEIGHT + CALENDAR_EVENT_MIN_HEIGHT,
+  );
   assert.equal(layoutCalendarDay([evening])[0].top, layout[1].top);
 });
 
@@ -41,7 +45,7 @@ test("overlapping cards get separate lanes; touching appointments can reuse a la
   const events = [
     task("b", "09:30", "10:30"),
     task("a", "09:00", "10:00"),
-    task("c", "10:30", "11:30"),
+    task("c", "11:00", "12:00"),
   ];
   const layout = layoutCalendarDay(events);
   assert.deepEqual(

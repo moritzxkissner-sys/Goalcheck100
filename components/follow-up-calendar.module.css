@@ -357,6 +357,139 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+.outcomeCard,
+.outcomeListCard {
+  container-type: inline-size;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #61748d;
+  border-radius: 8px;
+  background: #26374c;
+  color: #f0f4fa;
+}
+.outcomeCard[data-type="follow_up"] {
+  background: #10573f;
+  border-color: #299e72;
+}
+.outcomeCard[data-type="phone"] {
+  background: #51401a;
+  border-color: #ac862b;
+}
+.outcomeCard[data-outcome="no_show"],
+.outcomeListCard[data-outcome="no_show"] {
+  border: 2px solid #ff596a;
+}
+.outcomeCard[data-outcome="reschedule_requested"],
+.outcomeListCard[data-outcome="reschedule_requested"] {
+  border: 2px solid #459dff;
+}
+.outcomeCard[data-outcome="sale"],
+.outcomeListCard[data-outcome="sale"] {
+  border: 2px solid #ff57b4;
+}
+.outcomeCard > .event {
+  border: 0;
+  border-radius: 7px 7px 0 0;
+  flex: 1;
+}
+.outcomeFooter {
+  padding: 4px 8px 8px;
+}
+.outcomeLabel {
+  display: block;
+  font-size: 10px;
+  line-height: 16px;
+  margin-bottom: 4px;
+  color: #d9e5f4;
+}
+[data-outcome="no_show"] > .outcomeFooter > .outcomeLabel {
+  color: #ffb9c1;
+}
+[data-outcome="reschedule_requested"] > .outcomeFooter > .outcomeLabel {
+  color: #a8d5ff;
+}
+[data-outcome="sale"] > .outcomeFooter > .outcomeLabel {
+  color: #ffbde0;
+}
+.outcomeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.outcomeActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 100px;
+  min-width: 100px;
+  min-height: 36px;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: white;
+  font: inherit;
+  font-size: 10px;
+  line-height: 13px;
+  cursor: pointer;
+  overflow-wrap: normal;
+}
+.outcomeActions button[data-outcome="no_show"] {
+  flex-basis: 120px;
+  min-width: 120px;
+}
+.outcomeActions svg {
+  flex: none;
+}
+.outcomeActions [data-outcome="no_show"] {
+  background: #a51d35;
+}
+.outcomeActions [data-outcome="reschedule_requested"] {
+  background: #075daf;
+}
+.outcomeActions [data-outcome="sale"] {
+  background: #a61168;
+}
+.outcomeActions button[aria-pressed="true"] {
+  border-color: white;
+  box-shadow: 0 0 0 1px white;
+  font-weight: 750;
+}
+.outcomeActions button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.outcomeActions button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+.outcomeFull {
+  display: none;
+}
+@container (min-width: 620px) {
+  .outcomeShort {
+    display: none;
+  }
+  .outcomeFull {
+    display: inline;
+  }
+}
+.outcomeListCard {
+  margin: 6px 10px;
+}
+.outcomeListCard > .listRow {
+  border-bottom: 0;
+}
+.outcomeListCard .outcomeActions {
+  max-width: 730px;
+}
+.outside .outcomeCard {
+  width: min(100%, 310px);
+}
+.outside .outcomeCard > .event {
+  width: 100%;
+}
 .event:hover {
   filter: brightness(1.12);
 }

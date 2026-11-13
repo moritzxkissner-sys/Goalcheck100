@@ -21,9 +21,11 @@ import {
   isoToBerlinLocal,
   type FollowUpStatus,
   type FollowUpTask,
+  type FollowUpOutcome,
 } from "@/lib/follow-ups";
 import styles from "./follow-up-calendar.module.css";
 import FollowUpSearch from "./follow-up-search";
+import FollowUpOutcomeCard from "./follow-up-outcome-card";
 import {
   CALENDAR_END_HOUR,
   CALENDAR_START_HOUR,
@@ -143,6 +145,8 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   const [view, setView] = useState<View>("week");
   const [typeFilter, setTypeFilter] = useState<"all" | AppointmentType>("all");
   const [revision, setRevision] = useState(0);
+  const [outcomePending, setOutcomePending] = useState<string | null>(null);
+  const outcomeRequest = useRef(false);
   const [tasks, setTasks] = useState<FollowUpTask[]>([]);
   const [assignment, setAssignment] = useState<Assignment>({
     currentUserId: "",
@@ -400,6 +404,47 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
     }
   }
 
+  async function changeOutcome(
+    task: FollowUpTask,
+    outcome: FollowUpOutcome | null,
+  ) {
+    if (demo || loading || busy || outcomeRequest.current) return;
+    outcomeRequest.current = true;
+    setOutcomePending(task.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/follow-ups/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outcome_status: outcome }),
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(
+          body.error ?? "Ergebnis konnte nicht gespeichert werden.",
+        );
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? body.task : item)),
+      );
+      setRevision((value) => value + 1);
+      setNotice(
+        outcome === null
+          ? "Ergebnisstatus entfernt."
+          : "Ergebnisstatus gespeichert.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Ergebnis konnte nicht gespeichert werden.",
+      );
+    } finally {
+      outcomeRequest.current = false;
+      setOutcomePending(null);
+    }
+  }
+
   function navigate(amount: number) {
     if (view === "week") setAnchor(shiftDay(anchor, amount * 7));
     else {
@@ -636,11 +681,14 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                       }}
                     >
                       {events.map(({ task, top, height, lane, lanes }) => (
-                        <button
+                        <FollowUpOutcomeCard
                           key={task.id}
-                          type="button"
-                          data-status={task.status}
-                          data-type={task.appointment_type ?? "unknown"}
+                          task={task}
+                          onOutcome={changeOutcome}
+                          disabled={
+                            demo || loading || busy || outcomePending !== null
+                          }
+                          pending={outcomePending === task.id}
                           className={styles.event}
                           style={{
                             position: "absolute",
@@ -664,7 +712,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                           <small className={styles.eventStatus}>
                             {statusName[task.status]}
                           </small>
-                        </button>
+                        </FollowUpOutcomeCard>
                       ))}
                     </div>
                   );
@@ -681,9 +729,14 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                   .flatMap((day) => byDay.get(day) ?? [])
                   .filter((task) => !isInCalendarGrid(task.start_time))
                   .map((task) => (
-                    <button
+                    <FollowUpOutcomeCard
+                      task={task}
+                      onOutcome={changeOutcome}
+                      disabled={
+                        demo || loading || busy || outcomePending !== null
+                      }
+                      pending={outcomePending === task.id}
                       className={styles.event}
-                      data-type={task.appointment_type ?? "unknown"}
                       key={task.id}
                       onClick={() => openEdit(task)}
                     >
@@ -694,7 +747,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                       <span>{task.customer_name}</span>
                       <small>{task.offer_subject}</small>
                       <small>{statusName[task.status]}</small>
-                    </button>
+                    </FollowUpOutcomeCard>
                   ))}
               </div>
             )}
@@ -717,9 +770,14 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                   {dateTitle(day)}
                 </button>
                 {(byDay.get(day) ?? []).map((task) => (
-                  <button
+                  <FollowUpOutcomeCard
+                    task={task}
+                    onOutcome={changeOutcome}
+                    disabled={
+                      demo || loading || busy || outcomePending !== null
+                    }
+                    pending={outcomePending === task.id}
                     className={styles.event}
-                    data-type={task.appointment_type ?? "unknown"}
                     key={task.id}
                     onClick={() => openEdit(task)}
                   >
@@ -733,7 +791,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     <span>{task.customer_name}</span>
                     <small>{task.offer_subject}</small>
                     <small>{statusName[task.status]}</small>
-                  </button>
+                  </FollowUpOutcomeCard>
                 ))}
               </div>
             ))}
@@ -746,10 +804,13 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
               </p>
             ) : (
               shown.map((task) => (
-                <button
+                <FollowUpOutcomeCard
+                  task={task}
+                  onOutcome={changeOutcome}
+                  disabled={demo || loading || busy || outcomePending !== null}
+                  pending={outcomePending === task.id}
+                  list
                   key={task.id}
-                  data-status={task.status}
-                  data-type={task.appointment_type ?? "unknown"}
                   className={styles.listRow}
                   onClick={() => openEdit(task)}
                 >
@@ -768,7 +829,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                     <small>Zuständig: {assigneeName(task.assigned_to)}</small>
                   </strong>
                   <em>{statusName[task.status]}</em>
-                </button>
+                </FollowUpOutcomeCard>
               ))
             )}
           </div>

@@ -8,6 +8,7 @@ import {
 import {
   FOLLOW_UP_COLUMNS as columns,
   parseFollowUpInput,
+  parseFollowUpOutcomeInput,
 } from "@/lib/follow-ups";
 
 export const runtime = "nodejs";
@@ -19,7 +20,12 @@ export async function PATCH(request: Request, context: Context) {
   if (!validOrigin(request)) return offerError("Ungültige Anfrage.", 403);
   const { id } = await context.params;
   if (!validOfferId(id)) return offerError("Termin nicht gefunden.", 404);
-  const input = parseFollowUpInput(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  const outcomeChange =
+    body && typeof body === "object" && Object.hasOwn(body, "outcome_status");
+  const input = outcomeChange
+    ? parseFollowUpOutcomeInput(body)
+    : parseFollowUpInput(body);
   if (!input) return offerError("Bitte Termin und Kundendaten prüfen.", 400);
   const { data, error } = await auth.db
     .from("follow_up_tasks")

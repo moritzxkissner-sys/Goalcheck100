@@ -1,5 +1,25 @@
 export type FollowUpStatus = "pending" | "completed" | "rescheduled";
 export type AppointmentType = "follow_up" | "phone";
+export type FollowUpOutcome = "no_show" | "reschedule_requested" | "sale";
+
+export function parseFollowUpOutcomeInput(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  if (
+    Object.keys(input).length !== 1 ||
+    !Object.hasOwn(input, "outcome_status")
+  )
+    return null;
+  const outcome = input.outcome_status;
+  if (
+    outcome !== null &&
+    outcome !== "no_show" &&
+    outcome !== "reschedule_requested" &&
+    outcome !== "sale"
+  )
+    return null;
+  return { outcome_status: outcome as FollowUpOutcome | null };
+}
 
 export type FollowUpMember = { id: string; full_name: string };
 
@@ -25,6 +45,7 @@ export type FollowUpTask = {
   end_time: string;
   status: FollowUpStatus;
   appointment_type?: AppointmentType | null;
+  outcome_status?: FollowUpOutcome | null;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -141,7 +162,7 @@ export function parseFollowUpInput(value: unknown) {
 
 export const FOLLOW_UP_SEARCH_PAGE_SIZE = 50;
 export const FOLLOW_UP_COLUMNS =
-  "id,owner_id,assigned_to,title,customer_name,customer_email,customer_phone,offer_subject,start_time,end_time,status,appointment_type,notes,created_at,updated_at";
+  "id,owner_id,assigned_to,title,customer_name,customer_email,customer_phone,offer_subject,start_time,end_time,status,appointment_type,outcome_status,notes,created_at,updated_at";
 
 function searchDate(value: string | null, nextDay = false) {
   if (value === null || value === "") return undefined;
