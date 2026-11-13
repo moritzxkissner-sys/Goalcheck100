@@ -89,6 +89,104 @@ const response = (tasks: FollowUpTask[]) => ({
   members: [{ id: member, full_name: "Test Mitglied" }],
 });
 
+test("outcome buttons persist, replace and clear only the selected appointment result", async ({
+  page,
+}, testInfo) => {
+  let tasks = [
+    appointment(
+      "result-one",
+      "2026-11-04T08:00:00Z",
+      "2026-11-04T08:10:00Z",
+      "Ergebnis Kunde",
+    ),
+    appointment(
+      "result-two",
+      "2026-11-04T08:10:00Z",
+      "2026-11-04T08:20:00Z",
+      "Anderer Kunde",
+    ),
+  ];
+  const original = structuredClone(tasks);
+  const patches: unknown[] = [];
+  let fail = false;
+  await page.route("**/api/follow-ups**", async (route) => {
+    if (route.request().method() !== "PATCH")
+      return route.fulfill({ json: response(tasks) });
+    const input = route.request().postDataJSON();
+    patches.push(input);
+    if (fail)
+      return route.fulfill({
+        status: 500,
+        json: { error: "Ergebnis konnte nicht gespeichert werden." },
+      });
+    tasks = tasks.map((task) =>
+      task.id === "result-one" ? { ...task, ...input } : task,
+    );
+    return route.fulfill({ json: { task: tasks[0] } });
+  });
+  await mount(page);
+  const card = page.getByRole("group", {
+    name: "Termin Ergebnis Kunde",
+    exact: true,
+  });
+  const noShow = "Interessent Termin nicht eingehalten";
+  const reschedule = "Interessent möchte Termin verschieben";
+  for (const [label, value] of [
+    [noShow, "no_show"],
+    [reschedule, "reschedule_requested"],
+    ["Sale", "sale"],
+  ]) {
+    await card.getByRole("button", { name: label, exact: true }).click();
+    await expect(card).toHaveAttribute("data-outcome", value);
+    await expect(card.locator('button[aria-pressed="true"]')).toHaveCount(1);
+    await expect(card.getByText("Offen", { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
+  await mount(page);
+  await expect(card).toHaveAttribute("data-outcome", "sale");
+  await expect(
+    card.getByRole("button", { name: "Sale", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  for (const view of ["Monat", "Liste", "Woche"]) {
+    await page
+      .getByRole("region", { name: "Follow-up-Kalender", exact: true })
+      .getByRole("button", { name: view, exact: true })
+      .click();
+    await expect(card).toHaveAttribute("data-outcome", "sale");
+    await expect(
+      card.getByRole("button", { name: "Sale", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  }
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: `artifacts/follow-up-outcome-${testInfo.project.name}.png`,
+    fullPage: false,
+  });
+  await card.getByRole("button", { name: "Sale", exact: true }).click();
+  await expect(card).toHaveAttribute("data-outcome", "none");
+  fail = true;
+  await card.getByRole("button", { name: noShow, exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Ergebnis konnte nicht gespeichert werden.",
+  );
+  await expect(card).toHaveAttribute("data-outcome", "none");
+  await expect(card.locator('button[aria-pressed="true"]')).toHaveCount(0);
+  expect(tasks[0]).toEqual({ ...original[0], outcome_status: null });
+  expect(tasks[1]).toEqual(original[1]);
+  expect(patches).toEqual([
+    { outcome_status: "no_show" },
+    { outcome_status: "reschedule_requested" },
+    { outcome_status: "sale" },
+    { outcome_status: null },
+    { outcome_status: "no_show" },
+  ]);
+  const boxes = await card.getByRole("button").all();
+  for (const button of boxes)
+    expect(
+      await button.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+});
+
 test("weekly type totals stay unfiltered and typed cards remain consistent across views", async ({
   page,
 }, testInfo) => {

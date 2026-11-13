@@ -2,7 +2,7 @@ import { isoToBerlinLocal, type FollowUpTask } from "./follow-ups";
 import { CALENDAR_START_HOUR } from "./calendar-hours";
 
 export const CALENDAR_HOUR_HEIGHT = 180;
-export const CALENDAR_EVENT_MIN_HEIGHT = 112;
+export const CALENDAR_EVENT_MIN_HEIGHT = 232;
 
 /** Keep the shared time axis fixed; cards never push later hours down. */
 export function layoutCalendarDay(tasks: FollowUpTask[]) {
@@ -18,7 +18,7 @@ export function layoutCalendarDay(tasks: FollowUpTask[]) {
         ((start - CALENDAR_START_HOUR * 60) * CALENDAR_HOUR_HEIGHT) / 60;
       const height = Math.max(
         CALENDAR_EVENT_MIN_HEIGHT,
-        64 +
+        184 +
           (Math.ceil(task.customer_name.length / 28) +
             Math.ceil(task.offer_subject.length / 28)) *
             19,

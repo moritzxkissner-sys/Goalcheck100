@@ -9,12 +9,36 @@ import {
   parseFollowUpRange,
   parseFollowUpSearch,
   followUpSearchFilter,
+  parseFollowUpOutcomeInput,
 } from "../lib/follow-ups";
 
 const A = "00000000-0000-4000-8000-000000000001";
 const B = "00000000-0000-4000-8000-000000000002";
 const C = "00000000-0000-4000-8000-000000000003";
 const D = "00000000-0000-4000-8000-000000000004";
+
+test("outcome patches accept one nullable result and no unrelated fields", () => {
+  for (const outcome_status of [
+    null,
+    "no_show",
+    "reschedule_requested",
+    "sale",
+  ])
+    assert.deepEqual(parseFollowUpOutcomeInput({ outcome_status }), {
+      outcome_status,
+    });
+  for (const input of [
+    null,
+    [],
+    {},
+    { outcome_status: "pending" },
+    { outcome_status: undefined },
+    { outcome_status: ["sale", "no_show"] },
+    { outcome_status: "sale", status: "completed" },
+    { outcome_status: null, start_time: "2026-11-13T09:00:00Z" },
+  ])
+    assert.equal(parseFollowUpOutcomeInput(input), null);
+});
 
 test("appointment types accept explicit values without guessing legacy types", () => {
   const appointment = {
@@ -349,6 +373,83 @@ test("follow-up migrations preserve appointments and enforce creator/recipient d
     await assert.rejects(
       db.query("update public.follow_up_tasks set appointment_type = 'other'"),
       /follow_up_appointment_type_check/,
+    );
+    const appointmentsBeforeOutcome = await db.query(
+      "select id,status,start_time,end_time,appointment_type from public.follow_up_tasks order by id",
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/202611130001_follow_up_outcome.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select id,status,start_time,end_time,appointment_type from public.follow_up_tasks order by id",
+        )
+      ).rows,
+      appointmentsBeforeOutcome.rows,
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select distinct outcome_status from public.follow_up_tasks",
+        )
+      ).rows,
+      [{ outcome_status: null }],
+    );
+    const ownId = (own.rows[0] as { id: string }).id;
+    for (const outcome of ["no_show", "reschedule_requested", "sale", null]) {
+      await asUser(B, () =>
+        db.query(
+          "update public.follow_up_tasks set outcome_status=$1 where id=$2",
+          [outcome, ownId],
+        ),
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select outcome_status from public.follow_up_tasks where id=$1",
+            [ownId],
+          )
+        ).rows,
+        [{ outcome_status: outcome }],
+      );
+      assert.deepEqual(
+        (
+          await db.query(
+            "select id,status,start_time,end_time,appointment_type from public.follow_up_tasks order by id",
+          )
+        ).rows,
+        appointmentsBeforeOutcome.rows,
+      );
+    }
+    assert.equal(
+      (
+        await asUser(A, () =>
+          db.query(
+            "update public.follow_up_tasks set outcome_status='sale' where id=$1 returning id",
+            [ownId],
+          ),
+        )
+      ).rows.length,
+      0,
+    );
+    await assert.rejects(
+      db.query("update public.follow_up_tasks set outcome_status='other'"),
+      /follow_up_outcome_status_check/,
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select policyname,qual,with_check from pg_policies where tablename = 'follow_up_tasks' order by policyname",
+        )
+      ).rows,
+      policiesBefore.rows,
     );
     await db.query(
       "insert into auth.users(id,email) values ($1,'c@test.invalid'),($2,'d@test.invalid')",
