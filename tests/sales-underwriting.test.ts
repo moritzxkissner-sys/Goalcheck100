@@ -231,10 +231,30 @@ test("shared sales and underwriting enforce database rights, totals, history and
         sale,
       ]),
     );
+    const changed = await asUser(A, () =>
+      db.query<{ user_id: string; total: string }>(
+        "select * from public.team_leaderboard('2020-09-01')",
+      ),
+    );
+    assert.equal(Number(changed.rows.find((r) => r.user_id === A)?.total), 100);
+    assert.equal(Number(changed.rows.find((r) => r.user_id === B)?.total), 100);
+    await asUser(A, () =>
+      db.query(
+        `insert into public.sales_entries(user_id,amount,category,transaction_type,occurred_on,partner_id,owner_percent) values($1,19.99,'Rechtsschutz','Neuvertrag',(now() at time zone 'Europe/Berlin')::date,$2,30)`,
+        [A, B],
+      ),
+    );
+    const day = await asUser(A, () =>
+      db.query<{ user_id: string; total: string }>(
+        "select * from public.team_daily_leaderboard()",
+      ),
+    );
+    assert.equal(Number(day.rows.find((r) => r.user_id === A)?.total), 6);
+    assert.equal(Number(day.rows.find((r) => r.user_id === B)?.total), 13.99);
     assert.equal(
       (
         await db.query(
-          "select * from public.sales_entries where partner_id is not null",
+          "select * from public.sales_entries where id='10000000-0000-4000-8000-000000000001'",
         )
       ).rows.length,
       1,
@@ -263,6 +283,13 @@ test("shared sales and underwriting enforce database rights, totals, history and
     await assert.rejects(
       asUser(A, () =>
         db.query("select public.create_underwriting($1)", [payload]),
+      ),
+    );
+    await assert.rejects(
+      asUser(A, () =>
+        db.query("select public.create_underwriting($1)", [
+          { ...payload, message: "Abweichende Wiederholung" },
+        ]),
       ),
     );
     assert.equal(

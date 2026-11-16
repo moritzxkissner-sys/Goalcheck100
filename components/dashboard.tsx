@@ -1629,20 +1629,24 @@ export default function Dashboard({
                             {entry.note && <> · Notiz: {entry.note}</>}
                           </span>
                         </div>
-                        {entry.user_id === data.userId && (
-                          <button
-                            className="secondary"
-                            onClick={() => {
-                              setEditingEntry(entry);
-                              entryId.current = entry.id;
-                              setSaleAmount(entry.total_amount ?? entry.amount);
-                              setError("");
-                              setModal("entry");
-                            }}
-                          >
-                            Bearbeiten
-                          </button>
-                        )}
+                        {entry.user_id === data.userId &&
+                          entry.category !== "Kfz" &&
+                          entry.transaction_type !== null && (
+                            <button
+                              className="secondary"
+                              onClick={() => {
+                                setEditingEntry(entry);
+                                entryId.current = entry.id;
+                                setSaleAmount(
+                                  entry.total_amount ?? entry.amount,
+                                );
+                                setError("");
+                                setModal("entry");
+                              }}
+                            >
+                              Bearbeiten
+                            </button>
+                          )}
                         <strong className="entry-amount">
                           +{number(entry.amount, 2)} <small>BWS</small>
                         </strong>
