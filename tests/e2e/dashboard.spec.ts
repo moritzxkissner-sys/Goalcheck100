@@ -66,6 +66,10 @@ test("add, recalculate, rank, change goal, filter and delete on desktop and mobi
   await modal
     .getByRole("button", { name: "BWS hinzufügen", exact: true })
     .click();
+  await page
+    .getByRole("dialog", { name: "Prima gemacht, Berin!" })
+    .getByRole("button", { name: "Weiter →" })
+    .click();
   await expect(modal).not.toBeVisible();
   await expect(page.getByTestId("total-bws")).toContainText("10.450");
   await page

@@ -17,14 +17,21 @@ const date = z
     const d = new Date(s + "T12:00:00Z");
     return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
   }, "Ungültiges Datum.");
-export const entrySchema = z.object({
-  id: z.uuid(),
-  amount,
-  category: z.enum(categories),
-  transaction_type: z.enum(transactionTypes),
-  occurred_on: date,
-  customer_name: z.string().trim().max(120).default(""),
-});
+export const entrySchema = z
+  .object({
+    id: z.uuid(),
+    amount,
+    category: z.enum(categories),
+    transaction_type: z.enum(transactionTypes),
+    occurred_on: date,
+    customer_name: z.string().trim().max(120).default(""),
+    partner_id: z.uuid().nullable().default(null),
+    owner_percent: z.coerce.number().int().min(1).max(100).default(100),
+  })
+  .refine(
+    (e) => (e.partner_id ? e.owner_percent < 100 : e.owner_percent === 100),
+    "Bitte prüfe die BWS-Aufteilung.",
+  );
 export const cancellationSchema = z.object({
   id: z.uuid(),
   amount,

@@ -1,3 +1,4 @@
+import { personalEntry } from "@/lib/sale-sharing";
 import { redirect } from "next/navigation";
 import Dashboard from "@/components/dashboard";
 import { isConfigured, supabaseServer } from "@/lib/supabase/server";
@@ -46,9 +47,9 @@ export default async function Home({
       const page = await db
         .from("sales_entries")
         .select(
-          "id,user_id,amount,category,transaction_type,occurred_on,note,customer_name",
+          "id,user_id,amount,category,transaction_type,occurred_on,note,customer_name,partner_id,owner_percent",
         )
-        .eq("user_id", user!.id)
+        .or(`user_id.eq.${user!.id},partner_id.eq.${user!.id}`)
         .gte("occurred_on", start)
         .lt("occurred_on", end)
         .order("occurred_on", { ascending: false })
@@ -102,6 +103,7 @@ export default async function Home({
     daily,
     calendarMembers,
     calendar,
+    salePartners,
   ] = await Promise.all([
     loadEntries(),
     loadCancellations(),
@@ -116,6 +118,7 @@ export default async function Home({
     db.rpc("team_daily_leaderboard"),
     db.rpc("team_calendar_members"),
     loadTeamCalendarMonth(currentMonth()),
+    db.rpc("sale_partners"),
   ]);
   if (
     entries.error ||
@@ -125,7 +128,8 @@ export default async function Home({
     team.error ||
     daily.error ||
     calendarMembers.error ||
-    calendar.error
+    calendar.error ||
+    salePartners.error
   )
     throw new Error(
       "Die Daten konnten nicht geladen werden. Bitte prüfe die Supabase-Einrichtung.",
@@ -146,10 +150,8 @@ export default async function Home({
           })),
         },
         target: Number(goal.data?.target ?? 10000),
-        entries: (entries.data ?? []).map((e) => ({
-          ...e,
-          amount: Number(e.amount),
-        })) as Entry[],
+        salePartners: salePartners.data ?? [],
+        entries: (entries.data ?? []).map((e) => personalEntry(e, user.id)),
         cancellations: (cancellations.data ?? []).map((c) => ({
           ...c,
           amount: Number(c.amount),

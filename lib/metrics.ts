@@ -17,6 +17,9 @@ export const historicalCategories = [...categories, "Kfz"] as const;
 export const transactionTypes = ["Neuvertrag", "Vertragsumstellung"] as const;
 export type TransactionType = (typeof transactionTypes)[number];
 export type Entry = {
+  partner_id?: string | null;
+  owner_percent?: number;
+  total_amount?: number;
   id: string;
   user_id: string;
   amount: number;
@@ -43,6 +46,7 @@ export type Partner = {
   entry_count: number;
 };
 export type DashboardData = {
+  salePartners?: { id: string; full_name: string }[];
   userId: string;
   name: string;
   email: string;
