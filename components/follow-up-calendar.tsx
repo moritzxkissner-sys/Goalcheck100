@@ -32,7 +32,11 @@ import {
   calendarHours,
   isInCalendarGrid,
 } from "@/lib/calendar-hours";
-import { CALENDAR_HOUR_HEIGHT, layoutCalendarDay } from "@/lib/calendar-layout";
+import {
+  CALENDAR_HOUR_HEIGHT,
+  CALENDAR_DAY_MIN_WIDTH,
+  layoutCalendarDay,
+} from "@/lib/calendar-layout";
 
 type View = "week" | "month" | "list";
 type AppointmentType = "follow_up" | "phone";
@@ -282,7 +286,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
   );
   const weekColumns = weekLayouts.map(
     (events) =>
-      `minmax(${Math.max(1, ...events.map((event) => event.lanes)) * 260}px, 1fr)`,
+      `minmax(${Math.max(1, ...events.map((event) => event.lanes)) * CALENDAR_DAY_MIN_WIDTH}px, 1fr)`,
   );
 
   function assigneeName(id: string) {
@@ -676,7 +680,7 @@ export default function FollowUpCalendar({ demo = false }: { demo?: boolean }) {
                       className={styles.dayTimeline}
                       style={{
                         height: bottom + 32,
-                        minWidth: lanes * 260,
+                        minWidth: lanes * CALENDAR_DAY_MIN_WIDTH,
                         backgroundSize: `100% ${CALENDAR_HOUR_HEIGHT}px`,
                       }}
                     >

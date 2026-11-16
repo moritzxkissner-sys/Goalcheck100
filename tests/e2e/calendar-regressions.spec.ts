@@ -247,6 +247,16 @@ test("weekly type totals stay unfiltered and typed cards remain consistent acros
     name: "Follow-up-Kalender",
     exact: true,
   });
+  expect((await calendar.boundingBox())!.width).toBeLessThanOrEqual(1120);
+  const compactViewport = calendar.locator('[class*="weekScroll"]');
+  expect((await compactViewport.boundingBox())!.height).toBeLessThanOrEqual(
+    422,
+  );
+  expect(
+    await compactViewport.evaluate(
+      (node) => node.scrollHeight > node.clientHeight,
+    ),
+  ).toBe(true);
   await expect(
     calendar.getByText("Anna Nachfassen", { exact: true }),
   ).toBeVisible();
