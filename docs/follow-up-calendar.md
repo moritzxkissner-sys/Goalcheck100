@@ -40,3 +40,13 @@ Prüfung: `tests/follow-ups.test.ts` (Validierung, Suchmaskierung, Datumsgrenzen
 Migration und Rechte) sowie `tests/e2e/calendar-regressions.spec.ts` (Desktop und
 Smartphone: Ansichten, Typfilter, globale Suche, Terminänderungen, bestehende
 Zeitdarstellung und Anfrage-Reihenfolge).
+
+Kompakte Darstellung (16.11.2026): Der Kalender wird gemeinsam für alle Konten
+im Angebotsmanager eingebunden, einschließlich Steven. Er ist kein eigener
+Bestandteil der Übersichtsseite. Die Darstellung ist auf 1.120 px Breite begrenzt.
+Die Wochenansicht zeigt höchstens 420 px Höhe (Smartphone: 360 px) und bleibt
+für sämtliche Stunden vertikal sowie für weitere Tage horizontal scrollbar.
+Das Stundenraster beträgt 120 px; Terminflächen berücksichtigen weiterhin lange
+Kundennamen und Ergebnisaktionen bei der Kollisionsberechnung. Monats- und
+Listenansichten sind ebenfalls in der Höhe begrenzt. Persönliche Einstellungen,
+Termindaten, Zugriffsrechte und ereignisgesteuerte Aktualisierung bleiben erhalten.
