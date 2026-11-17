@@ -7,6 +7,7 @@ create temporary table goaltrack_sales_before on commit drop as
  select count(*) as entries,coalesce(sum(amount),0) as bws,
  md5(coalesce(string_agg(to_jsonb(e)::text,'' order by id),'')) as signature
  from public.sales_entries e;
+alter table goaltrack_sales_before enable row level security;
 alter table public.sales_entries
  add column partner_id uuid references public.profiles(id),
  add column owner_percent integer not null default 100,

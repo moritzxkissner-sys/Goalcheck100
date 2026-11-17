@@ -97,8 +97,14 @@ Neue Logik: `lib/sale-sharing.ts`, `lib/underwriting.ts`,
 `app/underwriting-actions.ts`. Neue Prüfungen: `tests/sales-underwriting.test.ts`
 und `tests/e2e/sales-underwriting.spec.ts`. Datenbankdateien siehe Einrichtung.
 
-Noch erforderlicher Veröffentlichungsschritt: produktive Datenbankeinrichtung,
-danach Code-Freigabe. Weder eine produktive Anfrage noch ein echter gemeinsamer
-Abschluss wurde zu Testzwecken angelegt. Die endgültige Upload-/Downloadprüfung
-im Cloud-Bucket folgt nach dessen Einrichtung. Die isolierten Datenbanktests
-prüfen bereits Zuordnung, Dateimetadaten, atomare Speicherung und Zugriffsregeln.
+Einrichtung am 17.11.2026 produktiv ausgeführt: alle bisherigen Abschlüsse,
+die Gesamt-BWS und die Prüfsumme sämtlicher bisheriger Abschlussfelder unverändert.
+Auch die temporäre Prüftabelle hat ausdrücklich aktivierten Zeilenschutz. Die drei
+Fachtabellen haben RLS, der Storage-Bucket ist privat, die BWS-Beitragsview ist für
+anon/authenticated nicht direkt lesbar und anonyme Schreib-RPCs sind gesperrt.
+Nur Stevens bekanntes aktives Profil hat die neue Underwriting-Verwaltungsberechtigung.
+
+Es wurde weder ein produktiver gemeinsamer Abschluss noch eine echte Anfrage zu
+Testzwecken angelegt. Die isolierten Datenbanktests prüfen Datei-Zuordnung,
+Metadaten, atomare Speicherung und Zugriffsregeln. Ein tatsächlicher Cloud-Upload
+mit einer neuen Anfrage wurde in der produktiven Umgebung nicht als Test angelegt.
