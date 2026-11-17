@@ -44,6 +44,7 @@ import {
 import {
   addCancellation,
   addEntry,
+  updateEntry,
   removeCancellation,
   removeEntry,
   saveGoal,
@@ -83,6 +84,14 @@ import TrainingDocuments from "@/components/training-documents";
 import LearningDashboard from "@/components/learning-dashboard";
 import InsurerDirectory from "@/components/insurer-directory";
 import FollowUpCalendar from "@/components/follow-up-calendar";
+import SaleSuccessModal from "./sale-success-modal";
+import SaleSplitFields from "./sale-split-fields";
+import Underwriting from "./underwriting";
+import {
+  splitBws,
+  applyDemoSale,
+  salePartnerOptions,
+} from "@/lib/sale-sharing";
 import OfferManager from "@/components/offer-manager";
 import type { TeamCalendarEntry, TeamCalendarInput } from "@/lib/team-calendar";
 
@@ -117,6 +126,7 @@ type View =
   | "team"
   | "commissions"
   | "offers"
+  | "underwriting"
   | "cancellations"
   | "training"
   | "quiz";
@@ -477,6 +487,10 @@ export default function Dashboard({
   const demoCalendarEntries = useRef<TeamCalendarEntry[]>(
     initial.calendarEntries,
   );
+  const [saleSuccess, setSaleSuccess] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [saleAmount, setSaleAmount] = useState(0);
+  const entrySaving = useRef(false);
   const entryId = useRef("");
   const cancellationId = useRef("");
   useEffect(() => {
@@ -542,7 +556,8 @@ export default function Dashboard({
             ...p,
             total: metrics.total,
             target: data.target,
-            entry_count: metrics.count,
+            entry_count: data.entries.filter((e) => e.user_id === data.userId)
+              .length,
           }
         : p,
     ),
@@ -582,6 +597,8 @@ export default function Dashboard({
     }
   }
   const openEntry = () => {
+    setEditingEntry(null);
+    setSaleAmount(0);
     entryId.current = crypto.randomUUID();
     setError("");
     setModal("entry");
@@ -614,6 +631,7 @@ export default function Dashboard({
   };
   function handleEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (entrySaving.current) return;
     setError("");
     const form = new FormData(event.currentTarget);
     const input = {
@@ -623,6 +641,8 @@ export default function Dashboard({
       transaction_type: form.get("transaction_type"),
       occurred_on: form.get("occurred_on"),
       customer_name: form.get("customer_name"),
+      partner_id: form.get("partner_id") || null,
+      owner_percent: Number(form.get("owner_percent")),
     };
     const parsed = entrySchema.safeParse(input);
     if (!parsed.success || String(input.occurred_on) > berlinDate()) {
@@ -631,45 +651,38 @@ export default function Dashboard({
       );
       return;
     }
+    entrySaving.current = true;
     startTransition(async () => {
       try {
+        let created = !editingEntry;
         if (!demo) {
-          const result = await addEntry(parsed.data);
+          const result = editingEntry
+            ? await updateEntry(parsed.data)
+            : await addEntry(parsed.data);
           if (result.error) {
             setError(result.error);
             return;
           }
+          if ("created" in result) created = !!result.created;
         }
         if (demo)
-          setData((old) => ({
-            ...old,
-            entries: parsed.data.occurred_on.startsWith(old.month)
-              ? [
-                  { ...parsed.data, note: "", user_id: old.userId },
-                  ...old.entries,
-                ].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on))
-              : old.entries,
-            daily: {
-              ...old.daily,
-              partners: old.daily.partners.map((p) =>
-                p.user_id === old.userId &&
-                parsed.data.occurred_on === old.daily.date
-                  ? {
-                      ...p,
-                      total:
-                        Math.round((p.total + parsed.data.amount) * 100) / 100,
-                    }
-                  : p,
-              ),
-            },
-          }));
+          setData((old) =>
+            applyDemoSale(
+              old,
+              { ...parsed.data, note: "", user_id: old.userId },
+              editingEntry,
+            ),
+          );
         setModal(null);
+        if (created) setSaleSuccess(true);
         setMessage(
           "BWS gespeichert. Dein Fortschritt und die Teamwertung sind aktualisiert.",
         );
         if (!demo) router.refresh();
       } catch {
         setError("Keine Verbindung. Bitte versuche es erneut.");
+      } finally {
+        entrySaving.current = false;
       }
     });
   }
@@ -774,24 +787,7 @@ export default function Dashboard({
             return;
           }
         }
-        if (demo)
-          setData((old) => ({
-            ...old,
-            entries: old.entries.filter((e) => e.id !== id),
-            daily: {
-              ...old.daily,
-              partners: old.daily.partners.map((p) =>
-                p.user_id === old.userId &&
-                deleting.occurred_on === old.daily.date
-                  ? {
-                      ...p,
-                      total:
-                        Math.round((p.total - deleting.amount) * 100) / 100,
-                    }
-                  : p,
-              ),
-            },
-          }));
+        if (demo) setData((old) => applyDemoSale(old, null, deleting));
         setDeleting(null);
         setMessage("Eintrag gelöscht. Die BWS-Werte wurden aktualisiert.");
         if (!demo) router.refresh();
@@ -847,6 +843,7 @@ export default function Dashboard({
     { id: "team" as const, label: "Team", icon: Users },
     { id: "commissions" as const, label: "Provisionen", icon: TrendingUp },
     { id: "offers" as const, label: "Angebotsmanager", icon: ScrollText },
+    { id: "underwriting" as const, label: "Underwriting", icon: ShieldCheck },
     { id: "cancellations" as const, label: "Kündigungen", icon: X },
     { id: "training" as const, label: "Weiterbildung", icon: GraduationCap },
     { id: "quiz" as const, label: "InsureQuiz", icon: ListChecks },
@@ -1047,7 +1044,9 @@ export default function Dashboard({
                     ? "DEINE WEITERBILDUNG"
                     : view === "cancellations"
                       ? "NACH VERTRAGSENDE"
-                      : view === "commissions" || view === "offers"
+                      : view === "commissions" ||
+                          view === "offers" ||
+                          view === "underwriting"
                         ? "DEINE VERTRIEBSWERKZEUGE"
                         : view === "fixedCosts"
                           ? "DEIN PRIVATER KOSTENPLAN"
@@ -1071,6 +1070,8 @@ export default function Dashboard({
                   "Provisionen"
                 ) : view === "offers" ? (
                   "Angebotsmanager"
+                ) : view === "underwriting" ? (
+                  "Underwriting"
                 ) : view === "cancellations" ? (
                   "Vorversicherungen"
                 ) : (
@@ -1092,9 +1093,11 @@ export default function Dashboard({
                             ? "Ein Platz für deine Provisionsübersicht."
                             : view === "offers"
                               ? "Angebote, Termine und Nachfassaktionen an einem Ort."
-                              : view === "cancellations"
-                                ? "Kontaktwege für Kündigungen bei Vorversicherern."
-                                : "Abwesenheiten und Verfügbarkeiten im Überblick."}
+                              : view === "underwriting"
+                                ? "Anfragen an die Fachabteilungen – Rechtsschutz und SHU."
+                                : view === "cancellations"
+                                  ? "Kontaktwege für Kündigungen bei Vorversicherern."
+                                  : "Abwesenheiten und Verfügbarkeiten im Überblick."}
               </p>
             </div>
             <div className="heading-actions">
@@ -1103,6 +1106,7 @@ export default function Dashboard({
                 view !== "training" &&
                 view !== "quiz" &&
                 view !== "commissions" &&
+                view !== "underwriting" &&
                 view !== "offers" &&
                 view !== "cancellations" && (
                   <div className="month-switch">
@@ -1130,6 +1134,7 @@ export default function Dashboard({
                 view !== "quiz" &&
                 view !== "commissions" &&
                 view !== "offers" &&
+                view !== "underwriting" &&
                 view !== "cancellations" && (
                   <>
                     <button
@@ -1225,6 +1230,16 @@ export default function Dashboard({
               <FollowUpCalendar demo={demo} />
             </>
           )}
+          {view === "underwriting" && (
+            <Underwriting
+              demo={demo}
+              customers={[
+                ...new Set(
+                  data.entries.map((e) => e.customer_name).filter(Boolean),
+                ),
+              ]}
+            />
+          )}
           {view === "commissions" && (
             <section
               className="glass workspace-placeholder"
@@ -1237,8 +1252,10 @@ export default function Dashboard({
                 <div className="eyebrow">IN VORBEREITUNG</div>
                 <h2 id="placeholder-title">Provisionsübersicht</h2>
                 <p>
-                  Hier entsteht deine Übersicht über Provisionsabrechnungen und
-                  Auszahlungen.
+                  Deine persönliche BWS-Grundlage im {monthLabel(data.month)}:{" "}
+                  <strong>{number(metrics.total, 2)} BWS</strong>. Gemeinsame
+                  Abschlüsse sind anteilig berücksichtigt. Provisionssätze und
+                  Auszahlungen sind noch nicht hinterlegt.
                 </p>
               </div>
             </section>
@@ -1575,14 +1592,67 @@ export default function Dashboard({
                             {entry.customer_name && (
                               <> · Kunde: {entry.customer_name}</>
                             )}
+                            {entry.partner_id && (
+                              <>
+                                <br />
+                                <strong>Gemeinsamer Abschluss</strong>
+                                <br />
+                                {entry.user_id === data.userId
+                                  ? data.name
+                                  : (salePartnerOptions(data, demo).find(
+                                      (p) => p.id === entry.user_id,
+                                    )?.full_name ?? "Ersteller")}{" "}
+                                – {entry.owner_percent} % –{" "}
+                                {number(
+                                  splitBws(
+                                    entry.total_amount ?? entry.amount,
+                                    entry.owner_percent ?? 100,
+                                  ).own,
+                                  2,
+                                )}{" "}
+                                BWS
+                                <br />
+                                {salePartnerOptions(data, demo).find(
+                                  (p) => p.id === entry.partner_id,
+                                )?.full_name ?? "Partner"}{" "}
+                                – {100 - (entry.owner_percent ?? 100)} % –{" "}
+                                {number(
+                                  splitBws(
+                                    entry.total_amount ?? entry.amount,
+                                    entry.owner_percent ?? 100,
+                                  ).partner,
+                                  2,
+                                )}{" "}
+                                BWS
+                              </>
+                            )}
                             {entry.note && <> · Notiz: {entry.note}</>}
                           </span>
                         </div>
+                        {entry.user_id === data.userId &&
+                          entry.category !== "Kfz" &&
+                          entry.transaction_type !== null && (
+                            <button
+                              className="secondary"
+                              onClick={() => {
+                                setEditingEntry(entry);
+                                entryId.current = entry.id;
+                                setSaleAmount(
+                                  entry.total_amount ?? entry.amount,
+                                );
+                                setError("");
+                                setModal("entry");
+                              }}
+                            >
+                              Bearbeiten
+                            </button>
+                          )}
                         <strong className="entry-amount">
                           +{number(entry.amount, 2)} <small>BWS</small>
                         </strong>
                         <button
                           className="icon-button delete-button"
+                          disabled={entry.user_id !== data.userId}
                           aria-label={`${entry.category} vom ${entry.occurred_on} löschen`}
                           onClick={() => {
                             setError("");
@@ -2069,15 +2139,27 @@ export default function Dashboard({
           </button>
         </div>
       )}
+      {saleSuccess && (
+        <SaleSuccessModal
+          name={data.name}
+          onClose={() => setSaleSuccess(false)}
+        />
+      )}
       {modal === "entry" && (
-        <Modal title="BWS hinzufügen" onClose={close}>
+        <Modal
+          title={editingEntry ? "Abschluss bearbeiten" : "BWS hinzufügen"}
+          onClose={close}
+        >
           <p className="modal-description">
             Ein neuer Abschluss. Ein Schritt näher an dein Ziel.
           </p>
           <form onSubmit={handleEntry} className="form">
             <label>
               Versicherung
-              <select name="category" defaultValue="Rechtsschutz">
+              <select
+                name="category"
+                defaultValue={editingEntry?.category ?? "Rechtsschutz"}
+              >
                 {categories.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
@@ -2087,7 +2169,7 @@ export default function Dashboard({
               Vertragsart
               <select
                 name="transaction_type"
-                defaultValue="Neuvertrag"
+                defaultValue={editingEntry?.transaction_type ?? "Neuvertrag"}
                 required
               >
                 {transactionTypes.map((type) => (
@@ -2101,6 +2183,12 @@ export default function Dashboard({
                 <input
                   autoFocus
                   name="amount"
+                  defaultValue={
+                    editingEntry?.total_amount ?? editingEntry?.amount ?? ""
+                  }
+                  onChange={(e) =>
+                    setSaleAmount(Number(e.target.value.replace(",", ".")))
+                  }
                   type="text"
                   inputMode="decimal"
                   required
@@ -2117,14 +2205,25 @@ export default function Dashboard({
                   required
                   min="2000-01-01"
                   max={berlinDate()}
-                  defaultValue={berlinDate()}
+                  defaultValue={editingEntry?.occurred_on ?? berlinDate()}
                 />
               </label>
             </div>
+            <SaleSplitFields
+              amount={saleAmount}
+              selected={editingEntry?.partner_id}
+              percent={
+                editingEntry?.partner_id ? editingEntry.owner_percent : 50
+              }
+              partners={salePartnerOptions(data, demo).filter(
+                (p) => p.id !== data.userId && p.full_name !== data.name,
+              )}
+            />
             <label>
               Kundenname <span className="optional">optional</span>
               <input
                 name="customer_name"
+                defaultValue={editingEntry?.customer_name ?? ""}
                 maxLength={120}
                 autoComplete="off"
                 placeholder="Name des Kunden"
@@ -2132,8 +2231,8 @@ export default function Dashboard({
             </label>
             <p className="form-hint">
               <ShieldCheck size={14} />
-              Der Kundenname ist nur in deinen eigenen Einträgen sichtbar. Bitte
-              keine weiteren Kundendaten eintragen.
+              Bei gemeinsamen Abschlüssen sieht auch der beteiligte Partner den
+              Kundennamen. Bitte keine weiteren Kundendaten eintragen.
             </p>
             {error && (
               <p className="form-error" role="alert">

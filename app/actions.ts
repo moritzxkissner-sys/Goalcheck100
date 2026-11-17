@@ -41,19 +41,70 @@ export async function addEntry(input: unknown) {
     if (parsed.data.occurred_on > berlinDate())
       return { error: "Das Datum darf nicht in der Zukunft liegen." };
     const { db, user } = await member();
-    const { error } = await db
+    if (parsed.data.partner_id === user.id)
+      return { error: "Du kannst dich nicht selbst als Partner auswählen." };
+    const { data: saved, error } = await db
       .from("sales_entries")
-      .insert({ ...parsed.data, user_id: user.id });
-    if (error && error.code !== "23505")
+      .insert({ ...parsed.data, user_id: user.id })
+      .select("id")
+      .single();
+    if (error) {
+      if (error.code === "23505") {
+        const { data: existing } = await db
+          .from("sales_entries")
+          .select(
+            "id,user_id,amount,category,transaction_type,occurred_on,customer_name,partner_id,owner_percent",
+          )
+          .eq("id", parsed.data.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (
+          existing &&
+          Object.entries(parsed.data).every(([key, value]) => {
+            const stored = (existing as Record<string, unknown>)[key];
+            return typeof value === "number"
+              ? Number(stored) === value
+              : stored === value;
+          })
+        )
+          return { success: true, created: false };
+      }
       return {
         error:
-          "Der Eintrag konnte nicht gespeichert werden. Bitte erneut versuchen.",
+          "Der Eintrag konnte nicht gespeichert werden. Bitte prüfe auch den ausgewählten Partner.",
       };
+    }
+    revalidatePath("/");
+    return { success: true, created: !!saved };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Speichern fehlgeschlagen.",
+    };
+  }
+}
+export async function updateEntry(input: unknown) {
+  try {
+    const parsed = entrySchema.safeParse(input);
+    if (!parsed.success || parsed.data.occurred_on > berlinDate())
+      return { error: "Bitte prüfe Betrag, Aufteilung und Datum." };
+    const { db, user } = await member();
+    if (parsed.data.partner_id === user.id)
+      return { error: "Bitte einen anderen Partner auswählen." };
+    const { id, ...fields } = parsed.data;
+    const { data, error } = await db
+      .from("sales_entries")
+      .update(fields)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data)
+      return { error: "Nur der Ersteller kann den Abschluss bearbeiten." };
     revalidatePath("/");
     return { success: true };
   } catch (e) {
     return {
-      error: e instanceof Error ? e.message : "Speichern fehlgeschlagen.",
+      error: e instanceof Error ? e.message : "Änderung fehlgeschlagen.",
     };
   }
 }
